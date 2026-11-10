@@ -45,6 +45,8 @@ class AutoScrollService : AccessibilityService() {
     private var endSince = 0L
     private var noProgressSince = 0L
     private var lastSwipeAt = 0L
+    private var lastProgressPct = -1f
+    private var lastProgressAt = 0L
     private var gestureBusy = false
     private var adSince = 0L
     private var lastNotifyKey = ""
@@ -61,8 +63,7 @@ class AutoScrollService : AccessibilityService() {
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
             PREF_ENABLED -> {
-                endSince = 0L
-                lastScanPct = -1f
+                resetScanState()
                 if (!prefs.enabled) setBubble(BubbleView.STATE_OFF, -1f)
                 updateNotification()
             }
@@ -151,6 +152,7 @@ class AutoScrollService : AccessibilityService() {
         val power = getSystemService(POWER_SERVICE) as PowerManager
         if (!power.isInteractive) {
             setBubble(BubbleView.STATE_IDLE, -1f)
+            resetScanState()
             return
         }
 
@@ -166,18 +168,14 @@ class AutoScrollService : AccessibilityService() {
         val now = SystemClock.elapsedRealtime()
 
         if (foregroundTikTok && !wasTikTok) {
-            lastScanPct = -1f
-            endSince = 0L
-            noProgressSince = 0L
+            resetScanState()
             if (now - lastSwipeAt > 10_000L) lastSwipeAt = now
         }
         wasTikTok = foregroundTikTok
 
         if (prefs.onlyTikTok && !foregroundTikTok) {
             setBubble(BubbleView.STATE_IDLE, -1f)
-            lastScanPct = -1f
-            endSince = 0L
-            noProgressSince = 0L
+            resetScanState()
             maybeNotify()
             return
         }
@@ -187,6 +185,7 @@ class AutoScrollService : AccessibilityService() {
 
         if (scan.inputFocused) {
             setBubble(BubbleView.STATE_IDLE, scan.pct)
+            resetScanState()
             return
         }
 
@@ -211,20 +210,26 @@ class AutoScrollService : AccessibilityService() {
         }
 
         val mode = prefs.mode
+        val fallbackOn = mode != Prefs.MODE_PROGRESS || prefs.autoFallback
 
         if (scan.pct < 0f) {
             lastScanPct = -1f
+            lastProgressPct = -1f
+            lastProgressAt = 0L
             if (noProgressSince == 0L) noProgressSince = now
-            val fallbackOn = mode != Prefs.MODE_PROGRESS || prefs.autoFallback
-            val settle = if (mode == Prefs.MODE_TIMER) 0L else 2500L
-            if (fallbackOn && now - noProgressSince >= settle &&
-                now - lastSwipeAt >= prefs.timerInterval
-            ) {
-                doSwipe()
-            }
+            val wait = maxOf(
+                prefs.timerInterval.toLong(),
+                if (mode == Prefs.MODE_TIMER) 0L else 2500L
+            )
+            if (fallbackOn && now - noProgressSince >= wait) doSwipe()
             return
         }
         noProgressSince = 0L
+
+        if (lastProgressPct < 0f || scan.pct != lastProgressPct) {
+            lastProgressPct = scan.pct
+            lastProgressAt = now
+        }
 
         if (mode == Prefs.MODE_TIMER) {
             if (now - lastSwipeAt >= prefs.timerInterval) doSwipe()
@@ -249,7 +254,23 @@ class AutoScrollService : AccessibilityService() {
             doSwipe()
             return
         }
+
+        if (fallbackOn && lastProgressAt > 0L &&
+            now - lastProgressAt >= maxOf(prefs.timerInterval.toLong(), 5000L)
+        ) {
+            doSwipe()
+            return
+        }
+
         lastScanPct = scan.pct
+    }
+
+    private fun resetScanState() {
+        lastScanPct = -1f
+        endSince = 0L
+        noProgressSince = 0L
+        lastProgressPct = -1f
+        lastProgressAt = 0L
     }
 
     private class Scan(val pct: Float, val ad: Boolean, val inputFocused: Boolean)
@@ -332,9 +353,7 @@ class AutoScrollService : AccessibilityService() {
 
         gestureBusy = true
         lastSwipeAt = SystemClock.elapsedRealtime()
-        lastScanPct = -1f
-        endSince = 0L
-        noProgressSince = 0L
+        resetScanState()
 
         val launched = dispatchGesture(gesture, object : GestureResultCallback() {
             override fun onCompleted(gestureDescription: GestureDescription?) {
@@ -369,8 +388,7 @@ class AutoScrollService : AccessibilityService() {
     fun toggle() {
         if (!::prefs.isInitialized) return
         prefs.enabled = !prefs.enabled
-        endSince = 0L
-        lastScanPct = -1f
+        resetScanState()
         setBubble(if (prefs.enabled) BubbleView.STATE_SCAN else BubbleView.STATE_OFF, -1f)
         updateNotification()
     }

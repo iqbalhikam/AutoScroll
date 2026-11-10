@@ -11,8 +11,8 @@ android {
         applicationId = "id.iqbal.tiktokauto"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
 
         val updateUrl = (
             providers.gradleProperty("updateUrl").orNull

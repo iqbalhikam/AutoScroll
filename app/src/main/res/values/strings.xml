@@ -48,7 +48,7 @@
     <string name="skip_ads">Lewati iklan otomatis</string>
     <string name="skip_ads_sub">Scroll lebih cepat saat video bersponsor muncul</string>
     <string name="auto_fallback">Scroll cadangan otomatis</string>
-    <string name="auto_fallback_sub">Berlaku bila progress video tidak terbaca (foto/slideshow)</string>
+    <string name="auto_fallback_sub">Berlaku bila progress video tidak terbaca atau macet (foto/slideshow)</string>
     <string name="vibrate">Getar saat scroll</string>
     <string name="vibrate_sub">Umpan balik halus tiap kali swipe</string>
     <string name="bubble">Bubble kontrol</string>
