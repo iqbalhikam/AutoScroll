@@ -64,6 +64,13 @@ class MainActivity : Activity() {
     private lateinit var swVibrate: Switch
     private lateinit var swBubble: Switch
 
+    private lateinit var swBlink: Switch
+    private lateinit var blinkStatus: TextView
+    private lateinit var rowBlinkPerm: android.widget.LinearLayout
+    private lateinit var blinkPermStatus: TextView
+    private var blinkSyncing = false
+    private var pendingBlink = false
+
     private lateinit var presetSantai: TextView
     private lateinit var presetSeimbang: TextView
     private lateinit var presetCepat: TextView
@@ -93,12 +100,14 @@ class MainActivity : Activity() {
         setupSeekBars()
         setupMode()
         setupSwitches()
+        setupBlink()
         setupActions()
         setupUpdate()
     }
 
     override fun onResume() {
         super.onResume()
+        if (prefs.blinkEnabled) startBlinkService()
         refresh()
         maybeInstallPending()
         maybeAutoCheck()
@@ -116,6 +125,21 @@ class MainActivity : Activity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 8) {
+            val granted = grantResults.isNotEmpty() &&
+                grantResults[0] == PackageManager.PERMISSION_GRANTED
+            if (granted) {
+                if (pendingBlink) {
+                    prefs.blinkEnabled = true
+                    startBlinkService()
+                    toast(getString(R.string.toast_blink_on))
+                }
+            } else {
+                prefs.blinkEnabled = false
+                toast(getString(R.string.toast_blink_need_perm))
+            }
+            pendingBlink = false
+        }
         refresh()
     }
 
@@ -153,6 +177,11 @@ class MainActivity : Activity() {
         swFallback = findViewById(R.id.swFallback)
         swVibrate = findViewById(R.id.swVibrate)
         swBubble = findViewById(R.id.swBubble)
+
+        swBlink = findViewById(R.id.swBlink)
+        blinkStatus = findViewById(R.id.blinkStatus)
+        rowBlinkPerm = findViewById(R.id.rowBlinkPerm)
+        blinkPermStatus = findViewById(R.id.blinkPermStatus)
 
         presetSantai = findViewById(R.id.presetSantai)
         presetSeimbang = findViewById(R.id.presetSeimbang)
@@ -251,6 +280,84 @@ class MainActivity : Activity() {
         swAutoUpdate.setOnCheckedChangeListener { _, checked ->
             if (!syncing) prefs.autoCheckUpdates = checked
         }
+    }
+
+    private fun setupBlink() {
+        swBlink.setOnCheckedChangeListener { _, checked ->
+            if (blinkSyncing) return@setOnCheckedChangeListener
+            if (checked) enableBlink() else disableBlink()
+        }
+        rowBlinkPerm.setOnClickListener { requestCameraPermission() }
+    }
+
+    private fun enableBlink() {
+        if (!isAccessibilityEnabled()) toast(getString(R.string.toast_blink_need_acc))
+        if (!cameraGranted()) {
+            pendingBlink = true
+            requestPermissions(arrayOf(Manifest.permission.CAMERA), 8)
+            return
+        }
+        prefs.blinkEnabled = true
+        requestNotificationPermission()
+        startBlinkService()
+        refreshBlink()
+    }
+
+    private fun disableBlink() {
+        pendingBlink = false
+        prefs.blinkEnabled = false
+        stopService(Intent(this, BlinkScrollService::class.java))
+        toast(getString(R.string.toast_blink_off))
+        refreshBlink()
+    }
+
+    private fun startBlinkService() {
+        if (!cameraGranted()) {
+            prefs.blinkEnabled = false
+            return
+        }
+        if (BlinkScrollService.isRunning) return
+        try {
+            startForegroundService(Intent(this, BlinkScrollService::class.java))
+        } catch (_: Exception) {
+            toast(getString(R.string.blink_status_error))
+        }
+    }
+
+    private fun requestCameraPermission() {
+        if (cameraGranted()) {
+            toast(getString(R.string.toast_camera_on))
+            return
+        }
+        pendingBlink = false
+        requestPermissions(arrayOf(Manifest.permission.CAMERA), 8)
+    }
+
+    private fun cameraGranted(): Boolean =
+        checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+
+    private fun refreshBlink() {
+        blinkSyncing = true
+        try {
+            if (swBlink.isChecked != prefs.blinkEnabled) {
+                swBlink.isChecked = prefs.blinkEnabled
+            }
+        } finally {
+            blinkSyncing = false
+        }
+        paintGrant(blinkPermStatus, cameraGranted())
+        blinkStatus.text = getString(
+            when {
+                !prefs.blinkEnabled -> R.string.blink_status_off
+                !cameraGranted() -> R.string.blink_status_no_perm
+                else -> when (BlinkScrollService.state) {
+                    BlinkScrollService.STATE_FACE -> R.string.blink_status_face
+                    BlinkScrollService.STATE_ACTIVE -> R.string.blink_status_active
+                    BlinkScrollService.STATE_ERROR -> R.string.blink_status_error
+                    else -> R.string.blink_status_waiting
+                }
+            }
+        )
     }
 
     private fun setupActions() {
@@ -583,6 +690,7 @@ class MainActivity : Activity() {
             refreshStatus()
             refreshStats()
             refreshUpdate()
+            refreshBlink()
         } finally {
             syncing = false
         }

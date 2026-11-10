@@ -11,8 +11,8 @@ android {
         applicationId = "id.iqbal.tiktokauto"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.4"
+        versionCode = 6
+        versionName = "1.5"
 
         val updateUrl = (
             providers.gradleProperty("updateUrl").orNull
@@ -73,4 +73,8 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+}
+
+dependencies {
+    implementation("com.google.android.gms:play-services-mlkit-face-detection:17.1.0")
 }

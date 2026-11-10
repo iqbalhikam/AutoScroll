@@ -64,9 +64,25 @@
     <string name="test_swipe">Tes swipe</string>
     <string name="reset">Reset</string>
 
+    <string name="blink_title">Kedipan mata</string>
+    <string name="blink_sub">Kedip cepat 2 kali untuk scroll tanpa sentuh</string>
+    <string name="blink_note">Kamera depan hanya menyala saat TikTok terbuka dan layar aktif. Frame diproses di perangkat, tidak disimpan atau dikirim. Butuh Google Play Services.</string>
+    <string name="row_camera_perm">Izin kamera</string>
+    <string name="blink_status_off">Nonaktif — nyalakan untuk scroll dengan kedipan</string>
+    <string name="blink_status_waiting">Menunggu TikTok dibuka</string>
+    <string name="blink_status_active">Kamera aktif — arahkan wajah ke layar</string>
+    <string name="blink_status_face">Wajah terdeteksi — kedip 2× untuk scroll</string>
+    <string name="blink_status_error">Kamera/detektor wajah belum siap</string>
+    <string name="blink_status_no_perm">Izin kamera belum diberikan</string>
+    <string name="toast_blink_on">Kedipan mata aktif</string>
+    <string name="toast_blink_off">Kedipan mata dimatikan</string>
+    <string name="toast_blink_need_perm">Izin kamera diperlukan untuk kedipan mata</string>
+    <string name="toast_blink_need_acc">Aktifkan layanan aksesibilitas agar kedipan bisa menggulir</string>
+    <string name="toast_camera_on">Izin kamera sudah aktif</string>
+
     <string name="section_guide">Cara pakai</string>
-    <string name="guide_steps">1. Aktifkan Layanan aksesibilitas AutoScroll.\n2. Kembali ke sini, nyalakan Auto-scroll.\n3. Buka TikTok, bubble hijau akan muncul.\n4. Video akan bergulir sendiri saat mendekati akhir.\n\nLong-press bubble untuk membuka pengaturan ini lagi.</string>
-    <string name="privacy_note">Privasi: aplikasi hanya membaca posisi progress bar dan teks iklan dari layar TikTok. Jaringan dipakai hanya saat memeriksa/mengunduh pembaruan (default: GitHub Releases, bisa diganti); tidak ada data pribadi yang dikirim.</string>
+    <string name="guide_steps">1. Aktifkan Layanan aksesibilitas AutoScroll.\n2. Kembali ke sini, nyalakan Auto-scroll.\n3. Buka TikTok, bubble hijau akan muncul.\n4. Video akan bergulir sendiri saat mendekati akhir.\n5. Opsional: nyalakan Kedipan mata, lalu kedip cepat 2× kapan saja untuk scroll manual.\n\nLong-press bubble untuk membuka pengaturan ini lagi.</string>
+    <string name="privacy_note">Privasi: aplikasi hanya membaca posisi progress bar dan teks iklan dari layar TikTok. Kamera depan opsional hanya aktif saat fitur kedipan dinyalakan dan TikTok terbuka; frame diproses di perangkat dan tidak disimpan. Jaringan dipakai hanya untuk memeriksa/mengunduh pembaruan (default: GitHub Releases, bisa diganti); tidak ada data pribadi yang dikirim.</string>
     <string name="footer">AutoScroll · lokal, tanpa iklan</string>
 
     <string name="section_update">Pembaruan</string>
@@ -109,6 +125,9 @@
     <string name="toast_install_perm_on">Izin pemasangan sudah aktif</string>
 
     <string name="notif_channel">Status auto-scroll</string>
+    <string name="notif_blink_channel">Kedipan mata</string>
+    <string name="notif_blink_title">Kedipan mata aktif</string>
+    <string name="action_stop_blink">Matikan</string>
     <string name="notif_on_title">AutoScroll aktif</string>
     <string name="notif_on_text">Memantau akhir video TikTok</string>
     <string name="notif_off_title">AutoScroll jeda</string>

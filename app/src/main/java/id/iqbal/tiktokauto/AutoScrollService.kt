@@ -385,6 +385,13 @@ class AutoScrollService : AccessibilityService() {
         }, 5000L)
     }
 
+    fun isTikTokForeground(): Boolean = foregroundTikTok
+
+    fun externalSwipe() {
+        if (!::prefs.isInitialized || !prefs.enabled) return
+        main.post { doSwipe() }
+    }
+
     fun toggle() {
         if (!::prefs.isInitialized) return
         prefs.enabled = !prefs.enabled
