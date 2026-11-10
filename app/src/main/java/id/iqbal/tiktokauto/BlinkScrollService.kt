@@ -49,6 +49,7 @@ class BlinkScrollService : Service() {
     private var lastFrameAt = 0L
 
     private var nextOpenAt = 0L
+    private var cameraOpenedAt = 0L
 
     private var eyesClosedAt = 0L
     private var firstBlinkAt = 0L
@@ -59,8 +60,16 @@ class BlinkScrollService : Service() {
         override fun run() {
             val power = getSystemService(POWER_SERVICE) as PowerManager
             val tiktok = AutoScrollService.instance?.get()?.isTikTokForeground() == true
-            if (power.isInteractive && tiktok) {
+            if (power.isInteractive && (tiktok || testMode)) {
                 openCamera()
+                if (camera != null && lastFrameAt == 0L &&
+                    SystemClock.elapsedRealtime() - cameraOpenedAt > 3500L
+                ) {
+                    lastError = "Kamera terbuka tetapi tidak mengirim frame"
+                    stopCamera()
+                    nextOpenAt = SystemClock.elapsedRealtime() + RETRY_MS
+                    setState(STATE_ERROR)
+                }
             } else {
                 stopCamera()
                 setState(STATE_WAITING)
@@ -75,8 +84,9 @@ class BlinkScrollService : Service() {
             cam.addCallbackBuffer(data)
             return@PreviewCallback
         }
+        framesReceived++
         val now = SystemClock.elapsedRealtime()
-        if (processing || now - lastFrameAt < FRAME_INTERVAL_MS) {
+        if (processing) {
             cam.addCallbackBuffer(data)
             return@PreviewCallback
         }
@@ -103,6 +113,7 @@ class BlinkScrollService : Service() {
             .addOnFailureListener(mainExecutor) { error ->
                 processing = false
                 frameFailures++
+                lastError = error.message ?: error.javaClass.simpleName
                 Log.w(TAG, "deteksi wajah gagal", error)
                 if (frameFailures == FAILURES_BEFORE_ERROR) setState(STATE_ERROR)
             }
@@ -121,6 +132,7 @@ class BlinkScrollService : Service() {
         }
 
         if (!startForegroundNow()) return START_NOT_STICKY
+        if (!isRunning) resetStats()
         isRunning = true
         setState(if (hasCamera()) STATE_WAITING else STATE_NO_PERM)
         if (detector == null) detector = createDetector()
@@ -151,6 +163,11 @@ class BlinkScrollService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
+    }
 
     override fun onDestroy() {
         main.removeCallbacks(loop)
@@ -213,32 +230,49 @@ class BlinkScrollService : Service() {
             params.setPreviewSize(size.width, size.height)
             opened.parameters = params
 
-            val texture = SurfaceTexture(0)
-            opened.setPreviewTexture(texture)
-            opened.startPreview()
-
             frameWidth = size.width
             frameHeight = size.height
             frameRotation = rotationFor(info)
             processing = false
             lastFrameAt = 0L
+            lastError = null
+            leftOpen = -1f
+            rightOpen = -1f
+
+            val texture = SurfaceTexture(0)
+            texture.setDefaultBufferSize(size.width, size.height)
+            opened.setPreviewTexture(texture)
 
             val bufferSize =
                 size.width * size.height * ImageFormat.getBitsPerPixel(ImageFormat.NV21) / 8
             repeat(2) { opened.addCallbackBuffer(ByteArray(bufferSize)) }
             opened.setPreviewCallbackWithBuffer(frameCallback)
+            opened.setErrorCallback { error, _ ->
+                lastError = "Kamera error $error"
+                main.post {
+                    stopCamera()
+                    nextOpenAt = SystemClock.elapsedRealtime() + RETRY_MS
+                    setState(STATE_ERROR)
+                }
+            }
+            opened.startPreview()
 
             camera = opened
             surface = texture
+            cameraOpenedAt = SystemClock.elapsedRealtime()
+            previewLabel = "${size.width}x${size.height} rot $frameRotation"
+            cameraOpen = true
             setState(STATE_ACTIVE)
         } catch (error: Exception) {
             Log.w(TAG, "gagal membuka kamera", error)
+            lastError = error.message ?: error.javaClass.simpleName
             try {
                 opened?.release()
             } catch (_: Exception) {
             }
             camera = null
             surface = null
+            cameraOpen = false
             processing = false
             nextOpenAt = SystemClock.elapsedRealtime() + RETRY_MS
             setState(STATE_ERROR)
@@ -248,9 +282,12 @@ class BlinkScrollService : Service() {
     private fun stopCamera() {
         val cam = camera ?: return
         camera = null
+        cameraOpen = false
         processing = false
         eyesClosedAt = 0L
         firstBlinkAt = 0L
+        leftOpen = -1f
+        rightOpen = -1f
         try {
             cam.setPreviewCallbackWithBuffer(null)
         } catch (_: Exception) {
@@ -272,24 +309,30 @@ class BlinkScrollService : Service() {
 
     private fun onFaces(faces: List<Face>) {
         processing = false
+        framesAnalyzed++
         frameFailures = 0
+        lastError = null
         if (!isRunning || camera == null) return
 
-        val face = faces.firstOrNull {
-            it.leftEyeOpenProbability != null && it.rightEyeOpenProbability != null
-        }
+        val face = faces
+            .filter { it.leftEyeOpenProbability != null || it.rightEyeOpenProbability != null }
+            .maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
         if (face == null) {
+            leftOpen = -1f
+            rightOpen = -1f
             eyesClosedAt = 0L
             clearBlinkHint()
             setState(STATE_ACTIVE)
             return
         }
 
+        val left = face.leftEyeOpenProbability
+        val right = face.rightEyeOpenProbability
+        leftOpen = left ?: -1f
+        rightOpen = right ?: -1f
+        faceHits++
         setState(STATE_FACE)
-        val open = (
-            (face.leftEyeOpenProbability ?: 1f) +
-                (face.rightEyeOpenProbability ?: 1f)
-            ) / 2f
+        val open = listOfNotNull(left, right).average().toFloat()
         val now = SystemClock.elapsedRealtime()
 
         if (firstBlinkAt != 0L && now - firstBlinkAt > DOUBLE_WINDOW_MS) clearBlinkHint()
@@ -304,6 +347,7 @@ class BlinkScrollService : Service() {
         eyesClosedAt = 0L
         if (closedAt == 0L) return
         if (now - closedAt !in BLINK_MIN_MS..BLINK_MAX_MS) return
+        blinksDetected++
         registerBlink(now)
     }
 
@@ -325,6 +369,7 @@ class BlinkScrollService : Service() {
 
         firstBlinkAt = 0L
         lastTriggerAt = now
+        triggers++
         AutoScrollService.instance?.get()?.externalSwipe()
     }
 
@@ -440,17 +485,16 @@ class BlinkScrollService : Service() {
 
         private const val LOOP_MS = 1200L
         private const val RETRY_MS = 8000L
-        private const val FRAME_INTERVAL_MS = 50L
         private const val FAILURES_BEFORE_ERROR = 25
-        private const val TARGET_W = 480
-        private const val TARGET_H = 360
+        private const val TARGET_W = 640
+        private const val TARGET_H = 480
 
-        private const val EYES_CLOSED = 0.4f
-        private const val EYES_OPEN = 0.6f
+        private const val EYES_CLOSED = 0.45f
+        private const val EYES_OPEN = 0.55f
         private const val BLINK_MIN_MS = 40L
-        private const val BLINK_MAX_MS = 1000L
-        private const val DOUBLE_WINDOW_MS = 2500L
-        private const val DOUBLE_MIN_GAP_MS = 100L
+        private const val BLINK_MAX_MS = 1200L
+        private const val DOUBLE_WINDOW_MS = 3000L
+        private const val DOUBLE_MIN_GAP_MS = 120L
         private const val TRIGGER_COOLDOWN_MS = 2000L
 
         const val STATE_OFF = 0
@@ -467,5 +511,60 @@ class BlinkScrollService : Service() {
         @Volatile
         var isRunning = false
             private set
+
+        @Volatile
+        var testMode = false
+
+        @Volatile
+        var cameraOpen = false
+            private set
+
+        @Volatile
+        var framesReceived = 0L
+            private set
+
+        @Volatile
+        var framesAnalyzed = 0L
+            private set
+
+        @Volatile
+        var faceHits = 0L
+            private set
+
+        @Volatile
+        var blinksDetected = 0
+            private set
+
+        @Volatile
+        var triggers = 0
+            private set
+
+        @Volatile
+        var leftOpen = -1f
+            private set
+
+        @Volatile
+        var rightOpen = -1f
+            private set
+
+        @Volatile
+        var lastError: String? = null
+            private set
+
+        @Volatile
+        var previewLabel = "-"
+            private set
+
+        private fun resetStats() {
+            framesReceived = 0L
+            framesAnalyzed = 0L
+            faceHits = 0L
+            blinksDetected = 0
+            triggers = 0
+            leftOpen = -1f
+            rightOpen = -1f
+            lastError = null
+            previewLabel = "-"
+        }
     }
 }

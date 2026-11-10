@@ -11,9 +11,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.graphics.Color
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Handler
@@ -27,6 +29,7 @@ import android.view.Gravity
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.TextView
 import java.lang.ref.WeakReference
 
 class AutoScrollService : AccessibilityService() {
@@ -37,6 +40,8 @@ class AutoScrollService : AccessibilityService() {
     private var wm: WindowManager? = null
     private var bubble: BubbleView? = null
     private var bubbleAttemptAt = 0L
+    private var flashView: TextView? = null
+    private var flashHide: Runnable? = null
 
     private var currentPkg = ""
     private var foregroundTikTok = false
@@ -48,6 +53,7 @@ class AutoScrollService : AccessibilityService() {
     private var lastProgressPct = -1f
     private var lastProgressAt = 0L
     private var gestureBusy = false
+    private var uiClosed = false
     private var adSince = 0L
     private var lastNotifyKey = ""
     private var lastNotifyAt = 0L
@@ -90,6 +96,7 @@ class AutoScrollService : AccessibilityService() {
         prefs.listen(prefListener)
         instance = WeakReference(this)
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        uiClosed = !prefs.uiOpen
 
         val filter = IntentFilter().apply {
             addAction(ACTION_TOGGLE)
@@ -101,10 +108,12 @@ class AutoScrollService : AccessibilityService() {
         }
 
         ensureChannel()
-        syncBubble()
-        updateNotification()
-        main.removeCallbacks(poll)
-        main.post(poll)
+        if (!uiClosed) {
+            syncBubble()
+            updateNotification()
+            main.removeCallbacks(poll)
+            main.post(poll)
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -127,6 +136,11 @@ class AutoScrollService : AccessibilityService() {
         super.onDestroy()
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        if (::prefs.isInitialized) onUiClosed()
+        super.onTaskRemoved(rootIntent)
+    }
+
     private fun cleanup() {
         main.removeCallbacks(poll)
         try {
@@ -135,6 +149,7 @@ class AutoScrollService : AccessibilityService() {
         }
         if (::prefs.isInitialized) prefs.unlisten(prefListener)
         removeBubble()
+        dismissFlash()
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(NOTIFY_ID)
         if (instance?.get() === this) instance = null
@@ -142,7 +157,7 @@ class AutoScrollService : AccessibilityService() {
 
     private fun tick() {
         if (!::prefs.isInitialized) return
-
+        if (uiClosed) return
         if (!prefs.enabled) {
             setBubble(BubbleView.STATE_OFF, -1f)
             maybeNotify()
@@ -200,9 +215,9 @@ class AutoScrollService : AccessibilityService() {
 
         if (scan.ad && prefs.skipAds) {
             if (adSince == 0L) adSince = now
-            if (now - adSince >= 1500L) {
+            if (now - adSince >= 800L) {
                 adSince = 0L
-                doSwipe()
+                doSwipe(viaAd = true)
                 return
             }
         } else {
@@ -271,21 +286,48 @@ class AutoScrollService : AccessibilityService() {
         noProgressSince = 0L
         lastProgressPct = -1f
         lastProgressAt = 0L
+        adSince = 0L
     }
 
     private class Scan(val pct: Float, val ad: Boolean, val inputFocused: Boolean)
 
+    private fun isAdLabel(text: String): Boolean {
+        val value = text.trim()
+        if (value.isEmpty()) return false
+        if (AD_LABELS.any { value.contains(it, true) }) return true
+        return value.length <= 40 && AD_SHORT_LABELS.any { value.equals(it, true) }
+    }
+
+    private fun isAdCta(text: String): Boolean {
+        val value = text.trim()
+        if (value.isEmpty() || value.length > 45) return false
+        return AD_CTAS.any { value.contains(it, true) }
+    }
+
+    private fun findAdByHint(root: AccessibilityNodeInfo): Boolean {
+        for (label in AD_LABELS) {
+            val found = try {
+                root.findAccessibilityNodeInfosByText(label)
+            } catch (_: Exception) {
+                null
+            } ?: continue
+            if (found.any { it.isVisibleToUser }) return true
+        }
+        return false
+    }
+
     private fun scan(root: AccessibilityNodeInfo): Scan {
         var best: AccessibilityNodeInfo? = null
         var bestScore = -1
-        var ad = false
+        var ad = findAdByHint(root)
         var input = false
         var visited = 0
         val bounds = Rect()
+        val screenHeight = resources.displayMetrics.heightPixels
         val queue = ArrayDeque<AccessibilityNodeInfo>()
         queue.add(root)
 
-        while (queue.isNotEmpty() && visited < 600) {
+        while (queue.isNotEmpty() && visited < 900) {
             val node = queue.removeFirst()
             visited++
 
@@ -295,9 +337,12 @@ class AutoScrollService : AccessibilityService() {
             if (!ad) {
                 val desc = node.contentDescription?.toString().orEmpty()
                 val text = node.text?.toString().orEmpty()
-                ad = desc.contains("sponsor", true) || text.contains("sponsor", true) ||
-                    desc.contains("iklan", true) || text.contains("iklan", true) ||
-                    desc.contains("bersponsor", true) || text.contains("bersponsor", true)
+                if (isAdLabel(desc) || isAdLabel(text)) {
+                    ad = true
+                } else if (isAdCta(desc) || isAdCta(text)) {
+                    node.getBoundsInScreen(bounds)
+                    if (bounds.top >= screenHeight * 0.35f) ad = true
+                }
             }
 
             val range = node.rangeInfo
@@ -330,7 +375,11 @@ class AutoScrollService : AccessibilityService() {
         return Scan(pct, ad, input)
     }
 
-    private fun doSwipe(force: Boolean = false) {
+    private fun doSwipe(
+        force: Boolean = false,
+        viaBlink: Boolean = false,
+        viaAd: Boolean = false
+    ) {
         if (!::prefs.isInitialized) return
         if ((!prefs.enabled && !force) || gestureBusy) return
 
@@ -354,12 +403,14 @@ class AutoScrollService : AccessibilityService() {
         gestureBusy = true
         lastSwipeAt = SystemClock.elapsedRealtime()
         resetScanState()
+        if (viaBlink) flashChip(getString(R.string.swipe_source_blink), "#4ADE80")
+        if (viaAd) flashChip(getString(R.string.swipe_source_ad), "#FBBF24")
 
         val launched = dispatchGesture(gesture, object : GestureResultCallback() {
             override fun onCompleted(gestureDescription: GestureDescription?) {
                 gestureBusy = false
                 prefs.addScroll()
-                feedback()
+                feedback(viaBlink)
             }
 
             override fun onCancelled(gestureDescription: GestureDescription?) {
@@ -390,7 +441,28 @@ class AutoScrollService : AccessibilityService() {
 
     fun externalSwipe() {
         if (!::prefs.isInitialized) return
-        main.post { doSwipe(force = true) }
+        main.post { doSwipe(force = true, viaBlink = true) }
+    }
+
+    fun onUiOpened() {
+        if (!::prefs.isInitialized) return
+        uiClosed = false
+        prefs.uiOpen = true
+        syncBubble()
+        updateNotification()
+        main.removeCallbacks(poll)
+        main.post(poll)
+    }
+
+    fun onUiClosed() {
+        if (!::prefs.isInitialized) return
+        uiClosed = true
+        prefs.uiOpen = false
+        main.removeCallbacks(poll)
+        removeBubble()
+        dismissFlash()
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(NOTIFY_ID)
     }
 
     fun toggle() {
@@ -405,13 +477,70 @@ class AutoScrollService : AccessibilityService() {
         if (::prefs.isInitialized) syncBubble()
     }
 
-    private fun feedback() {
+    private fun feedback(viaBlink: Boolean) {
         if (prefs.vibrate) {
             val vibrator = getSystemService(Vibrator::class.java)
-            vibrator?.vibrate(VibrationEffect.createOneShot(16L, VibrationEffect.DEFAULT_AMPLITUDE))
+            if (viaBlink) {
+                vibrator?.vibrate(
+                    VibrationEffect.createWaveform(longArrayOf(0L, 30L, 60L, 30L), -1)
+                )
+            } else {
+                vibrator?.vibrate(
+                    VibrationEffect.createOneShot(16L, VibrationEffect.DEFAULT_AMPLITUDE)
+                )
+            }
         }
         setBubble(BubbleView.STATE_ACTIVE, 0f)
         updateNotification()
+    }
+
+    private fun flashChip(message: String, accentColor: String) {
+        val manager = wm ?: return
+        dismissFlash()
+        val dm = resources.displayMetrics
+        val view = TextView(this).apply {
+            text = message
+            setTextColor(Color.WHITE)
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setPadding(dp(16), dp(9), dp(16), dp(9))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(20).toFloat()
+                setColor(Color.parseColor("#E6111827"))
+                setStroke(dp(1), Color.parseColor(accentColor))
+            }
+        }
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.TRANSLUCENT
+        )
+        params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+        params.y = (dm.heightPixels * 0.12f).toInt()
+        try {
+            manager.addView(view, params)
+            flashView = view
+            val hide = Runnable { dismissFlash() }
+            flashHide = hide
+            main.postDelayed(hide, 1300L)
+        } catch (_: Exception) {
+            flashView = null
+            flashHide = null
+        }
+    }
+
+    private fun dismissFlash() {
+        flashHide?.let { main.removeCallbacks(it) }
+        flashHide = null
+        val view = flashView ?: return
+        flashView = null
+        try {
+            wm?.removeView(view)
+        } catch (_: Exception) {
+        }
     }
 
     private fun setBubble(state: Int, pct: Float) {
@@ -510,6 +639,7 @@ class AutoScrollService : AccessibilityService() {
 
     private fun maybeNotify() {
         if (!::prefs.isInitialized) return
+        if (uiClosed) return
         val key = "${prefs.enabled}|${prefs.mode}|${prefs.bubble}"
         val now = SystemClock.elapsedRealtime()
         if (key == lastNotifyKey && now - lastNotifyAt < 6000L) return
@@ -518,10 +648,14 @@ class AutoScrollService : AccessibilityService() {
 
     private fun updateNotification() {
         if (!::prefs.isInitialized) return
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        if (uiClosed) {
+            nm.cancel(NOTIFY_ID)
+            return
+        }
         lastNotifyKey = "${prefs.enabled}|${prefs.mode}|${prefs.bubble}"
         lastNotifyAt = SystemClock.elapsedRealtime()
 
-        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val open = PendingIntent.getActivity(
             this,
             20,
@@ -567,6 +701,18 @@ class AutoScrollService : AccessibilityService() {
         private const val ACTION_TOGGLE = "id.iqbal.tiktokauto.action.TOGGLE"
         private const val PREF_ENABLED = "enabled"
         private const val PREF_BUBBLE = "bubble"
+
+        private val AD_LABELS = arrayOf(
+            "disponsori", "bersponsor", "sponsor", "sponsored",
+            "paid partnership", "advertisement"
+        )
+        private val AD_SHORT_LABELS = arrayOf("iklan")
+        private val AD_CTAS = arrayOf(
+            "pelajari selengkapnya", "kunjungi situs web", "belanja sekarang",
+            "unduh sekarang", "pasang sekarang", "pesan sekarang", "daftar sekarang",
+            "hubungi kami", "lihat penawaran", "learn more", "shop now",
+            "visit website", "download now", "install now", "sign up", "buy now"
+        )
 
         var instance: WeakReference<AutoScrollService>? = null
             private set

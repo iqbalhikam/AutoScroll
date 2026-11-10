@@ -46,7 +46,7 @@
     <string name="only_tiktok">Hanya aktif di TikTok</string>
     <string name="only_tiktok_sub">Berhenti saat aplikasi lain dibuka</string>
     <string name="skip_ads">Lewati iklan otomatis</string>
-    <string name="skip_ads_sub">Scroll lebih cepat saat video bersponsor muncul</string>
+    <string name="skip_ads_sub">Scroll cepat saat label Disponsori atau tombol iklan muncul</string>
     <string name="auto_fallback">Scroll cadangan otomatis</string>
     <string name="auto_fallback_sub">Berlaku bila progress video tidak terbaca atau macet (foto/slideshow)</string>
     <string name="vibrate">Getar saat scroll</string>
@@ -80,10 +80,50 @@
     <string name="toast_blink_need_perm">Izin kamera diperlukan untuk kedipan mata</string>
     <string name="toast_blink_need_acc">Aktifkan layanan aksesibilitas agar kedipan bisa menggulir</string>
     <string name="toast_camera_on">Izin kamera sudah aktif</string>
+    <string name="row_blink_test">Uji kamera &amp; kedipan</string>
+    <string name="row_blink_test_sub">Lihat data deteksi langsung</string>
+
+    <string name="blink_test_title">Tes kedipan mata</string>
+    <string name="blink_test_sub">Layar ini menampilkan data mentah kamera dan deteksi wajah.</string>
+    <string name="blink_test_back">‹ Kembali</string>
+    <string name="blink_test_hint">Nyalakan kedipan mata, arahkan wajah ke kamera depan, lalu kedip 2× cepat.</string>
+    <string name="blink_test_live">Data deteksi langsung</string>
+    <string name="blink_test_reading_title">Cara membaca</string>
+    <string name="blink_test_reading">Frame diterima naik = kamera mengirim gambar. Wajah terdeteksi naik = deteksi wajah jalan. Saat kedip, angka mata turun di bawah 0,45 lalu naik lagi. Kedipan dikenali naik = kedipan terbaca. Swipe terkirim naik = perintah geser dikirim. Jika swipe naik tetapi halaman tidak bergeser, gestur diblokir layanan aksesibilitas.</string>
+    <string name="blink_test_start">Nyalakan kamera kedipan</string>
+    <string name="blink_test_foot">Data hanya diproses di perangkat dan tidak dikirim ke mana pun.</string>
+    <string name="blink_test_status_off">Kedipan mata nonaktif</string>
+    <string name="blink_test_status_waiting">Menunggu kamera…</string>
+    <string name="blink_test_status_waiting_sub">Jika lama, matikan lalu nyalakan lagi sakelar kedipan mata.</string>
+    <string name="blink_test_status_active">Kamera aktif — belum ada wajah</string>
+    <string name="blink_test_status_active_sub">Dekatkan wajah sampai memenuhi sekitar sepertiga layar dan hadap ke kamera depan.</string>
+    <string name="blink_test_status_face">Wajah terdeteksi</string>
+    <string name="blink_test_status_face_sub">Kedip 2× cepat. Angka mata di bawah akan turun saat mata tertutup.</string>
+    <string name="blink_test_status_one_blink">1 kedipan dikenali</string>
+    <string name="blink_test_status_one_blink_sub">Kedip sekali lagi dalam 3 detik.</string>
+    <string name="blink_test_status_triggered">SWIPE DIKIRIM DARI KEDIPAN</string>
+    <string name="blink_test_status_triggered_sub">Halaman ini seharusnya ikut bergeser. Di TikTok, video akan pindah ke video berikutnya.</string>
+    <string name="blink_test_status_no_perm">Izin kamera belum ada</string>
+    <string name="blink_test_status_error">Kamera/detektor error</string>
+    <string name="blink_test_status_no_frames">Kamera terbuka tanpa frame</string>
+    <string name="blink_test_status_no_frames_sub">Tutup aplikasi lain yang memakai kamera, lalu matikan dan nyalakan lagi kedipan mata.</string>
+    <string name="blink_test_error_unknown">Penyebab tidak diketahui.</string>
+    <string name="blink_test_camera_on">aktif</string>
+    <string name="blink_test_camera_off">nonaktif</string>
+    <string name="blink_test_row_status">Status</string>
+    <string name="blink_test_row_camera">Kamera</string>
+    <string name="blink_test_row_frames">Frame terima/proses</string>
+    <string name="blink_test_row_face">Wajah terdeteksi</string>
+    <string name="blink_test_row_eyes">Mata buka L/R</string>
+    <string name="blink_test_row_blinks">Kedipan dikenali</string>
+    <string name="blink_test_row_swipes">Swipe dari kedip</string>
+    <string name="blink_test_row_error">Error terakhir</string>
+    <string name="swipe_source_blink">Kedip → scroll</string>
+    <string name="swipe_source_ad">Iklan → lewati</string>
 
     <string name="section_guide">Cara pakai</string>
-    <string name="guide_steps">1. Aktifkan Layanan aksesibilitas AutoScroll.\n2. Kembali ke sini, nyalakan Auto-scroll.\n3. Buka TikTok, bubble hijau akan muncul.\n4. Video akan bergulir sendiri saat mendekati akhir.\n5. Opsional: nyalakan Kedipan mata, lalu kedip cepat 2× kapan saja untuk scroll manual.\n\nLong-press bubble untuk membuka pengaturan ini lagi.</string>
-    <string name="privacy_note">Privasi: aplikasi hanya membaca posisi progress bar dan teks iklan dari layar TikTok. Kamera depan opsional hanya aktif saat fitur kedipan dinyalakan dan TikTok terbuka; frame diproses di perangkat dan tidak disimpan. Jaringan dipakai hanya untuk memeriksa/mengunduh pembaruan (default: GitHub Releases, bisa diganti); tidak ada data pribadi yang dikirim.</string>
+    <string name="guide_steps">1. Aktifkan Layanan aksesibilitas AutoScroll.\n2. Kembali ke sini, nyalakan Auto-scroll.\n3. Buka TikTok, bubble hijau akan muncul.\n4. Video akan bergulir sendiri saat mendekati akhir.\n5. Opsional: nyalakan Kedipan mata, lalu kedip cepat 2× kapan saja untuk scroll manual. Bila tidak bereaksi, buka menu Uji kamera &amp; kedipan.\n\nLong-press bubble untuk membuka pengaturan ini lagi.</string>
+    <string name="privacy_note">Privasi: aplikasi hanya membaca posisi progress bar dan teks iklan dari layar TikTok. Kamera depan opsional hanya aktif saat fitur kedipan dinyalakan dan TikTok terbuka atau saat layar uji kedipan dibuka; frame diproses di perangkat dan tidak disimpan. Jaringan dipakai hanya untuk memeriksa/mengunduh pembaruan (default: GitHub Releases, bisa diganti); tidak ada data pribadi yang dikirim.</string>
     <string name="footer">AutoScroll · lokal, tanpa iklan</string>
 
     <string name="section_update">Pembaruan</string>

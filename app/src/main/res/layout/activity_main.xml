@@ -812,6 +812,44 @@
                     android:tint="@color/textMuted" />
             </LinearLayout>
 
+            <LinearLayout
+                android:id="@+id/rowBlinkTest"
+                style="@style/Row"
+                android:layout_marginTop="6dp"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    style="@style/Icon"
+                    android:contentDescription="@string/row_blink_test"
+                    android:src="@drawable/ic_eye"
+                    android:tint="@color/accent" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/RowTitle"
+                        android:text="@string/row_blink_test" />
+
+                    <TextView
+                        style="@style/RowSub"
+                        android:text="@string/row_blink_test_sub" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_marginStart="6dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/textMuted" />
+            </LinearLayout>
+
             <TextView
                 style="@style/Caption"
                 android:layout_marginTop="8dp"

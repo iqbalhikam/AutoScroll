@@ -67,6 +67,7 @@ class MainActivity : Activity() {
     private lateinit var swBlink: Switch
     private lateinit var blinkStatus: TextView
     private lateinit var rowBlinkPerm: android.widget.LinearLayout
+    private lateinit var rowBlinkTest: android.widget.LinearLayout
     private lateinit var blinkPermStatus: TextView
     private var blinkSyncing = false
     private var pendingBlink = false
@@ -111,10 +112,14 @@ class MainActivity : Activity() {
         refresh()
         maybeInstallPending()
         maybeAutoCheck()
-        AutoScrollService.instance?.get()?.refreshBubble()
+        AutoScrollService.instance?.get()?.onUiOpened()
     }
 
     override fun onDestroy() {
+        if (isFinishing) {
+            AutoScrollService.instance?.get()?.onUiClosed()
+            stopService(Intent(this, BlinkScrollService::class.java))
+        }
         io.shutdownNow()
         super.onDestroy()
     }
@@ -181,6 +186,7 @@ class MainActivity : Activity() {
         swBlink = findViewById(R.id.swBlink)
         blinkStatus = findViewById(R.id.blinkStatus)
         rowBlinkPerm = findViewById(R.id.rowBlinkPerm)
+        rowBlinkTest = findViewById(R.id.rowBlinkTest)
         blinkPermStatus = findViewById(R.id.blinkPermStatus)
 
         presetSantai = findViewById(R.id.presetSantai)
@@ -288,6 +294,9 @@ class MainActivity : Activity() {
             if (checked) enableBlink() else disableBlink()
         }
         rowBlinkPerm.setOnClickListener { requestCameraPermission() }
+        rowBlinkTest.setOnClickListener {
+            startActivity(Intent(this, BlinkTestActivity::class.java))
+        }
     }
 
     private fun enableBlink() {

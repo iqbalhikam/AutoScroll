@@ -67,6 +67,10 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_BLINK, false)
         set(value) = sp.edit().putBoolean(KEY_BLINK, value).apply()
 
+    var uiOpen: Boolean
+        get() = sp.getBoolean(KEY_UI_OPEN, true)
+        set(value) = sp.edit().putBoolean(KEY_UI_OPEN, value).apply()
+
     var updateUrl: String
         get() = sp.getString(KEY_UPDATE_URL, "").orEmpty().ifBlank { BuildConfig.UPDATE_URL }
         set(value) = sp.edit().putString(KEY_UPDATE_URL, value).apply()
@@ -136,6 +140,7 @@ class Prefs(context: Context) {
         private const val KEY_SKIP_ADS = "skip_ads"
         private const val KEY_AUTO_FALLBACK = "auto_fallback"
         private const val KEY_BLINK = "blink_enabled"
+        private const val KEY_UI_OPEN = "ui_open"
         private const val KEY_BUBBLE_X = "bubble_x"
         private const val KEY_BUBBLE_Y = "bubble_y"
         private const val KEY_COUNT = "scroll_count"

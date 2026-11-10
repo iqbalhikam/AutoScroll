@@ -43,6 +43,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".BlinkTestActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <service
             android:name=".AutoScrollService"
             android:exported="true"
@@ -59,7 +64,8 @@
         <service
             android:name=".BlinkScrollService"
             android:exported="false"
-            android:foregroundServiceType="camera" />
+            android:foregroundServiceType="camera"
+            android:stopWithTask="true" />
 
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
