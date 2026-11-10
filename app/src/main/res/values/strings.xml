@@ -72,6 +72,7 @@
     <string name="blink_status_waiting">Menunggu TikTok dibuka</string>
     <string name="blink_status_active">Kamera aktif — arahkan wajah ke layar</string>
     <string name="blink_status_face">Wajah terdeteksi — kedip 2× untuk scroll</string>
+    <string name="blink_status_one_blink">1 kedipan terdeteksi — kedip sekali lagi</string>
     <string name="blink_status_error">Kamera/detektor wajah belum siap</string>
     <string name="blink_status_no_perm">Izin kamera belum diberikan</string>
     <string name="toast_blink_on">Kedipan mata aktif</string>

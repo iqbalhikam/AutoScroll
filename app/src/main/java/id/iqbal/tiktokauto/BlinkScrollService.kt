@@ -100,9 +100,10 @@ class BlinkScrollService : Service() {
         )
         faceDetector.process(image)
             .addOnSuccessListener(mainExecutor) { faces -> onFaces(faces) }
-            .addOnFailureListener(mainExecutor) {
+            .addOnFailureListener(mainExecutor) { error ->
                 processing = false
                 frameFailures++
+                Log.w(TAG, "deteksi wajah gagal", error)
                 if (frameFailures == FAILURES_BEFORE_ERROR) setState(STATE_ERROR)
             }
     }
@@ -171,7 +172,7 @@ class BlinkScrollService : Service() {
                 .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
                 .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE)
                 .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-                .setMinFaceSize(0.2f)
+                .setMinFaceSize(0.15f)
                 .build()
         )
     } catch (error: Exception) {
@@ -279,16 +280,19 @@ class BlinkScrollService : Service() {
         }
         if (face == null) {
             eyesClosedAt = 0L
+            clearBlinkHint()
             setState(STATE_ACTIVE)
             return
         }
 
         setState(STATE_FACE)
-        val open = minOf(
-            face.leftEyeOpenProbability ?: 1f,
-            face.rightEyeOpenProbability ?: 1f
-        )
+        val open = (
+            (face.leftEyeOpenProbability ?: 1f) +
+                (face.rightEyeOpenProbability ?: 1f)
+            ) / 2f
         val now = SystemClock.elapsedRealtime()
+
+        if (firstBlinkAt != 0L && now - firstBlinkAt > DOUBLE_WINDOW_MS) clearBlinkHint()
 
         if (open < EYES_CLOSED) {
             if (eyesClosedAt == 0L) eyesClosedAt = now
@@ -303,11 +307,18 @@ class BlinkScrollService : Service() {
         registerBlink(now)
     }
 
+    private fun clearBlinkHint() {
+        if (firstBlinkAt == 0L) return
+        firstBlinkAt = 0L
+        if (isRunning) updateNotification()
+    }
+
     private fun registerBlink(now: Long) {
         if (now - lastTriggerAt < TRIGGER_COOLDOWN_MS) return
 
         if (firstBlinkAt == 0L || now - firstBlinkAt > DOUBLE_WINDOW_MS) {
             firstBlinkAt = now
+            if (isRunning) updateNotification()
             return
         }
         if (now - firstBlinkAt < DOUBLE_MIN_GAP_MS) return
@@ -345,7 +356,7 @@ class BlinkScrollService : Service() {
             0
         }
         return if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-            (360 - (info.orientation + degrees) % 360) % 360
+            (info.orientation + degrees) % 360
         } else {
             (info.orientation - degrees + 360) % 360
         }
@@ -411,7 +422,11 @@ class BlinkScrollService : Service() {
 
     private fun statusTextRes(): Int = when (state) {
         STATE_ACTIVE -> R.string.blink_status_active
-        STATE_FACE -> R.string.blink_status_face
+        STATE_FACE -> if (firstBlinkAt != 0L) {
+            R.string.blink_status_one_blink
+        } else {
+            R.string.blink_status_face
+        }
         STATE_ERROR -> R.string.blink_status_error
         STATE_NO_PERM -> R.string.blink_status_no_perm
         else -> R.string.blink_status_waiting
@@ -425,17 +440,17 @@ class BlinkScrollService : Service() {
 
         private const val LOOP_MS = 1200L
         private const val RETRY_MS = 8000L
-        private const val FRAME_INTERVAL_MS = 60L
+        private const val FRAME_INTERVAL_MS = 50L
         private const val FAILURES_BEFORE_ERROR = 25
-        private const val TARGET_W = 320
-        private const val TARGET_H = 240
+        private const val TARGET_W = 480
+        private const val TARGET_H = 360
 
-        private const val EYES_CLOSED = 0.35f
-        private const val EYES_OPEN = 0.7f
+        private const val EYES_CLOSED = 0.4f
+        private const val EYES_OPEN = 0.6f
         private const val BLINK_MIN_MS = 40L
-        private const val BLINK_MAX_MS = 900L
-        private const val DOUBLE_WINDOW_MS = 2200L
-        private const val DOUBLE_MIN_GAP_MS = 120L
+        private const val BLINK_MAX_MS = 1000L
+        private const val DOUBLE_WINDOW_MS = 2500L
+        private const val DOUBLE_MIN_GAP_MS = 100L
         private const val TRIGGER_COOLDOWN_MS = 2000L
 
         const val STATE_OFF = 0

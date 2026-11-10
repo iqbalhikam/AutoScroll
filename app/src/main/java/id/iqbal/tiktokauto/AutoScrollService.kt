@@ -385,11 +385,12 @@ class AutoScrollService : AccessibilityService() {
         }, 5000L)
     }
 
-    fun isTikTokForeground(): Boolean = foregroundTikTok
+    fun isTikTokForeground(): Boolean =
+        currentPkg in tiktokPackages || foregroundTikTok
 
     fun externalSwipe() {
-        if (!::prefs.isInitialized || !prefs.enabled) return
-        main.post { doSwipe() }
+        if (!::prefs.isInitialized) return
+        main.post { doSwipe(force = true) }
     }
 
     fun toggle() {
