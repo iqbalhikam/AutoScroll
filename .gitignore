@@ -1,0 +1,9 @@
+.gradle/
+.kotlin/
+build/
+.idea/
+*.iml
+local.properties
+updates/app-release.apk
+updates/update.json
+release-notes.md

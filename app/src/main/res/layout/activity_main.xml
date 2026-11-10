@@ -1,0 +1,944 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:fillViewport="true"
+    android:fitsSystemWindows="true"
+    android:overScrollMode="never"
+    android:scrollbars="none">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="26dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_icon"
+                android:contentDescription="@string/app_name"
+                android:padding="10dp"
+                android:src="@drawable/ic_bolt"
+                android:tint="@color/accent" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.01"
+                    android:text="@string/app_name"
+                    android:textColor="@color/textPrimary"
+                    android:textSize="24sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/tagline"
+                    android:textColor="@color/accent"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/statusPill"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_pill_off"
+                android:paddingStart="12dp"
+                android:paddingTop="6dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="6dp"
+                android:text="@string/status_off"
+                android:textColor="@color/textSecondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="18dp"
+            android:lineSpacingExtra="3dp"
+            android:text="@string/hero_subtitle"
+            android:textColor="@color/textSecondary"
+            android:textSize="13sp" />
+
+        <!-- CONTROL -->
+        <LinearLayout style="@style/Card">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    style="@style/Icon"
+                    android:contentDescription="@string/enable_title"
+                    android:src="@drawable/ic_bolt"
+                    android:tint="@color/accent" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/RowTitle"
+                        android:text="@string/enable_title"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/enableSub"
+                        style="@style/RowSub"
+                        android:text="@string/enable_sub_off" />
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/swEnable"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="6dp"
+                android:background="@color/divider" />
+
+            <LinearLayout
+                android:id="@+id/rowAccessibility"
+                style="@style/Row"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    style="@style/Icon"
+                    android:contentDescription="@string/row_accessibility"
+                    android:src="@drawable/ic_accessibility" />
+
+                <TextView
+                    style="@style/RowTitle"
+                    android:layout_width="0dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:text="@string/row_accessibility" />
+
+                <TextView
+                    android:id="@+id/accStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/not_granted"
+                    android:textColor="@color/textMuted"
+                    android:textSize="12sp" />
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_marginStart="6dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/textMuted" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowOverlay"
+                style="@style/Row"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    style="@style/Icon"
+                    android:contentDescription="@string/row_overlay"
+                    android:src="@drawable/ic_layers" />
+
+                <TextView
+                    style="@style/RowTitle"
+                    android:layout_width="0dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:text="@string/row_overlay" />
+
+                <TextView
+                    android:id="@+id/ovStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/not_granted"
+                    android:textColor="@color/textMuted"
+                    android:textSize="12sp" />
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_marginStart="6dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/textMuted" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowNotif"
+                style="@style/Row"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    style="@style/Icon"
+                    android:contentDescription="@string/row_notif"
+                    android:src="@drawable/ic_bell" />
+
+                <TextView
+                    style="@style/RowTitle"
+                    android:layout_width="0dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:text="@string/row_notif" />
+
+                <TextView
+                    android:id="@+id/notifStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/not_granted"
+                    android:textColor="@color/textMuted"
+                    android:textSize="12sp" />
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_marginStart="6dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/textMuted" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- MODE -->
+        <LinearLayout style="@style/Card">
+
+            <TextView style="@style/Section" android:text="@string/section_mode" />
+
+            <LinearLayout
+                android:id="@+id/modeGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_segment_group"
+                android:orientation="horizontal"
+                android:padding="4dp">
+
+                <TextView
+                    android:id="@+id/segProgress"
+                    style="@style/Segment"
+                    android:background="@drawable/bg_segment_on"
+                    android:text="@string/mode_progress"
+                    android:textColor="@color/accent" />
+
+                <TextView
+                    android:id="@+id/segHybrid"
+                    style="@style/Segment"
+                    android:background="@drawable/bg_segment"
+                    android:text="@string/mode_hybrid" />
+
+                <TextView
+                    android:id="@+id/segTimer"
+                    style="@style/Segment"
+                    android:background="@drawable/bg_segment"
+                    android:text="@string/mode_timer" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/modeHint"
+                style="@style/Caption"
+                android:layout_marginTop="10dp"
+                android:text="@string/mode_hint_progress" />
+
+            <LinearLayout
+                android:id="@+id/endGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/RowTitle"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:text="@string/threshold_title" />
+
+                    <TextView
+                        android:id="@+id/thresholdValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="98%"
+                        android:textColor="@color/accent"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/thresholdBar"
+                    style="@style/Seek"
+                    android:max="100"
+                    android:min="90" />
+
+                <TextView style="@style/Caption" android:text="@string/threshold_hint" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/timerGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/RowTitle"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:text="@string/interval_title" />
+
+                    <TextView
+                        android:id="@+id/intervalValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="15 dtk"
+                        android:textColor="@color/accent"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/intervalBar"
+                    style="@style/Seek"
+                    android:max="60"
+                    android:min="3" />
+
+                <TextView style="@style/Caption" android:text="@string/interval_hint" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- GESTURE -->
+        <LinearLayout style="@style/Card">
+
+            <TextView style="@style/Section" android:text="@string/section_gesture" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/RowTitle"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:text="@string/delay_title" />
+
+                    <TextView
+                        android:id="@+id/delayValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="1.2 dtk"
+                        android:textColor="@color/accent"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/delayBar"
+                    style="@style/Seek"
+                    android:max="4000"
+                    android:min="300" />
+
+                <TextView style="@style/Caption" android:text="@string/delay_hint" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/RowTitle"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:text="@string/duration_title" />
+
+                    <TextView
+                        android:id="@+id/durationValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="220 ms"
+                        android:textColor="@color/accent"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/durationBar"
+                    style="@style/Seek"
+                    android:max="600"
+                    android:min="120" />
+
+                <TextView style="@style/Caption" android:text="@string/duration_hint" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/RowTitle"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:text="@string/distance_title" />
+
+                    <TextView
+                        android:id="@+id/distanceValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="38%"
+                        android:textColor="@color/accent"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/distanceBar"
+                    style="@style/Seek"
+                    android:max="70"
+                    android:min="20" />
+
+                <TextView style="@style/Caption" android:text="@string/distance_hint" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- BEHAVIOR -->
+        <LinearLayout style="@style/Card">
+
+            <TextView style="@style/Section" android:text="@string/section_behavior" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    style="@style/Icon"
+                    android:contentDescription="@string/only_tiktok"
+                    android:src="@drawable/ic_target" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView style="@style/RowTitle" android:text="@string/only_tiktok" />
+
+                    <TextView style="@style/RowSub" android:text="@string/only_tiktok_sub" />
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/swOnlyTiktok"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    style="@style/Icon"
+                    android:contentDescription="@string/skip_ads"
+                    android:src="@drawable/ic_swipe" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView style="@style/RowTitle" android:text="@string/skip_ads" />
+
+                    <TextView style="@style/RowSub" android:text="@string/skip_ads_sub" />
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/swSkipAds"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    style="@style/Icon"
+                    android:contentDescription="@string/auto_fallback"
+                    android:src="@drawable/ic_timer" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView style="@style/RowTitle" android:text="@string/auto_fallback" />
+
+                    <TextView style="@style/RowSub" android:text="@string/auto_fallback_sub" />
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/swFallback"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    style="@style/Icon"
+                    android:contentDescription="@string/vibrate"
+                    android:src="@drawable/ic_vibrate" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView style="@style/RowTitle" android:text="@string/vibrate" />
+
+                    <TextView style="@style/RowSub" android:text="@string/vibrate_sub" />
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/swVibrate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    style="@style/Icon"
+                    android:contentDescription="@string/bubble"
+                    android:src="@drawable/ic_bubble" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView style="@style/RowTitle" android:text="@string/bubble" />
+
+                    <TextView style="@style/RowSub" android:text="@string/bubble_sub" />
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/swBubble"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- PRESET -->
+        <LinearLayout style="@style/Card">
+
+            <TextView style="@style/Section" android:text="@string/section_preset" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_segment_group"
+                android:orientation="horizontal"
+                android:padding="4dp">
+
+                <TextView
+                    android:id="@+id/presetSantai"
+                    style="@style/Preset"
+                    android:background="@drawable/bg_segment"
+                    android:text="@string/preset_calm" />
+
+                <TextView
+                    android:id="@+id/presetSeimbang"
+                    style="@style/Preset"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_segment"
+                    android:text="@string/preset_balanced" />
+
+                <TextView
+                    android:id="@+id/presetCepat"
+                    style="@style/Preset"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_segment"
+                    android:text="@string/preset_fast" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- STATS -->
+        <LinearLayout style="@style/Card">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView style="@style/Caption" android:text="@string/today_scroll" />
+
+                    <TextView
+                        android:id="@+id/countValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="0"
+                        android:textColor="@color/accent"
+                        android:textSize="30sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/btnTest"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_segment_on"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingStart="18dp"
+                        android:paddingTop="10dp"
+                        android:paddingEnd="18dp"
+                        android:paddingBottom="10dp"
+                        android:text="@string/test_swipe"
+                        android:textColor="@color/accent"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/btnReset"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/bg_row"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:paddingStart="10dp"
+                        android:paddingTop="5dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="5dp"
+                        android:text="@string/reset"
+                        android:textColor="@color/textMuted"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- UPDATE -->
+        <LinearLayout style="@style/Card">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    style="@style/Icon"
+                    android:contentDescription="@string/section_update"
+                    android:src="@drawable/ic_download"
+                    android:tint="@color/accent" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/RowTitle"
+                        android:text="@string/section_update"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/updateVersion"
+                        style="@style/RowSub"
+                        android:text="@string/update_version_label" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/btnCheckUpdate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_segment_on"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingStart="18dp"
+                    android:paddingTop="9dp"
+                    android:paddingEnd="18dp"
+                    android:paddingBottom="9dp"
+                    android:text="@string/update_check"
+                    android:textColor="@color/accent"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/updateStatus"
+                style="@style/Caption"
+                android:layout_marginTop="10dp"
+                android:text="@string/update_status_idle" />
+
+            <ProgressBar
+                android:id="@+id/updateProgress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:max="100"
+                android:progressBackgroundTint="@color/track"
+                android:progressTint="@color/accent"
+                android:visibility="gone" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="6dp"
+                android:background="@color/divider" />
+
+            <LinearLayout
+                android:id="@+id/rowInstallPerm"
+                style="@style/Row"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    style="@style/Icon"
+                    android:contentDescription="@string/row_install_perm"
+                    android:src="@drawable/ic_shield" />
+
+                <TextView
+                    style="@style/RowTitle"
+                    android:layout_width="0dp"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:text="@string/row_install_perm" />
+
+                <TextView
+                    android:id="@+id/installStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/not_granted"
+                    android:textColor="@color/textMuted"
+                    android:textSize="12sp" />
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_marginStart="6dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/textMuted" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/rowUpdateSource"
+                style="@style/Row"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    style="@style/Icon"
+                    android:contentDescription="@string/row_update_source"
+                    android:src="@drawable/ic_globe" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView style="@style/RowTitle" android:text="@string/row_update_source" />
+
+                    <TextView
+                        android:id="@+id/updateUrlValue"
+                        style="@style/RowSub"
+                        android:ellipsize="middle"
+                        android:maxLines="1"
+                        android:text="@string/update_url_unset" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_marginStart="6dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_chevron_right"
+                    android:tint="@color/textMuted" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView style="@style/RowTitle" android:text="@string/update_auto" />
+
+                    <TextView style="@style/RowSub" android:text="@string/update_auto_sub" />
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/swAutoUpdate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- GUIDE -->
+        <LinearLayout style="@style/Card">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_shield"
+                    android:tint="@color/accent" />
+
+                <TextView
+                    style="@style/Section"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/section_guide" />
+            </LinearLayout>
+
+            <TextView
+                style="@style/Caption"
+                android:layout_marginTop="10dp"
+                android:lineSpacingExtra="5dp"
+                android:text="@string/guide_steps" />
+
+            <TextView
+                style="@style/Caption"
+                android:layout_marginTop="12dp"
+                android:text="@string/privacy_note"
+                android:textColor="@color/textMuted"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:text="@string/footer"
+            android:textColor="@color/textMuted"
+            android:textSize="11sp" />
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,2 @@
+-keep class id.iqbal.tiktokauto.AutoScrollService { *; }
+-keep class id.iqbal.tiktokauto.MainActivity { *; }

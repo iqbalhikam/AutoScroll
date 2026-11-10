@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AutoScroll</string>
+    <string name="service_label">AutoScroll TikTok</string>
+    <string name="service_description">Memantau posisi video TikTok lalu menggulir otomatis saat video selesai. Hanya membaca struktur tampilan saat aktif, tidak mengumpulkan data pribadi.</string>
+
+    <string name="tagline">TikTok hands-free</string>
+    <string name="hero_subtitle">Deteksi akhir video secara otomatis, lalu geser ke video berikutnya tanpa menyentuh layar.</string>
+
+    <string name="status_off">Jeda</string>
+    <string name="status_on">Aktif</string>
+    <string name="status_need">Perlu izin</string>
+
+    <string name="section_control">Kontrol</string>
+    <string name="enable_title">Auto-scroll</string>
+    <string name="enable_sub_on">Memantau TikTok di latar belakang</string>
+    <string name="enable_sub_off">Ketuk untuk mengaktifkan</string>
+
+    <string name="row_accessibility">Layanan aksesibilitas</string>
+    <string name="row_overlay">Izin overlay (bubble)</string>
+    <string name="row_notif">Notifikasi status</string>
+    <string name="granted">Aktif</string>
+    <string name="not_granted">Belum</string>
+
+    <string name="section_mode">Mode deteksi</string>
+    <string name="mode_progress">Progress</string>
+    <string name="mode_hybrid">Hybrid</string>
+    <string name="mode_timer">Timer</string>
+    <string name="mode_hint_progress">Scroll saat progress video mencapai batas. Bila progress tak terbaca, cadangan interval aktif otomatis.</string>
+    <string name="mode_hint_hybrid">Utamakan deteksi akhir video; pakai interval sebagai cadangan bila progress tidak terbaca.</string>
+    <string name="mode_hint_timer">Scroll setiap interval tetap, tanpa membaca progress video.</string>
+    <string name="threshold_title">Batas akhir video</string>
+    <string name="threshold_hint">Makin tinggi, makin menunggu video benar-benar habis.</string>
+    <string name="interval_title">Interval scroll</string>
+    <string name="interval_hint">Dipakai mode Timer dan cadangan saat progress tak terbaca (foto/slideshow).</string>
+
+    <string name="section_gesture">Gerakan</string>
+    <string name="delay_title">Jeda setelah scroll</string>
+    <string name="delay_hint">Waktu memberi TikTok memuat video berikutnya.</string>
+    <string name="duration_title">Durasi swipe</string>
+    <string name="duration_hint">Swipe terlalu cepat bisa tidak terdeteksi TikTok.</string>
+    <string name="distance_title">Jarak swipe</string>
+    <string name="distance_hint">Persentase tinggi layar yang digeser.</string>
+
+    <string name="section_behavior">Perilaku</string>
+    <string name="only_tiktok">Hanya aktif di TikTok</string>
+    <string name="only_tiktok_sub">Berhenti saat aplikasi lain dibuka</string>
+    <string name="skip_ads">Lewati iklan otomatis</string>
+    <string name="skip_ads_sub">Scroll lebih cepat saat video bersponsor muncul</string>
+    <string name="auto_fallback">Scroll cadangan otomatis</string>
+    <string name="auto_fallback_sub">Berlaku bila progress video tidak terbaca (foto/slideshow)</string>
+    <string name="vibrate">Getar saat scroll</string>
+    <string name="vibrate_sub">Umpan balik halus tiap kali swipe</string>
+    <string name="bubble">Bubble kontrol</string>
+    <string name="bubble_sub">Ketuk untuk jeda, tahan untuk buka pengaturan</string>
+
+    <string name="section_preset">Preset cepat</string>
+    <string name="preset_calm">Santai</string>
+    <string name="preset_balanced">Seimbang</string>
+    <string name="preset_fast">Cepat</string>
+
+    <string name="section_stats">Statistik</string>
+    <string name="today_scroll">Scroll hari ini</string>
+    <string name="test_swipe">Tes swipe</string>
+    <string name="reset">Reset</string>
+
+    <string name="section_guide">Cara pakai</string>
+    <string name="guide_steps">1. Aktifkan Layanan aksesibilitas AutoScroll.\n2. Kembali ke sini, nyalakan Auto-scroll.\n3. Buka TikTok, bubble hijau akan muncul.\n4. Video akan bergulir sendiri saat mendekati akhir.\n\nLong-press bubble untuk membuka pengaturan ini lagi.</string>
+    <string name="privacy_note">Privasi: aplikasi hanya membaca posisi progress bar dan teks iklan dari layar TikTok. Jaringan dipakai hanya saat memeriksa/mengunduh pembaruan (default: GitHub Releases, bisa diganti); tidak ada data pribadi yang dikirim.</string>
+    <string name="footer">AutoScroll · lokal, tanpa iklan</string>
+
+    <string name="section_update">Pembaruan</string>
+    <string name="update_version">Versi %1$s</string>
+    <string name="update_version_label">Versi</string>
+    <string name="update_check">Periksa</string>
+    <string name="update_status_idle">Periksa versi terbaru tanpa membuka browser.</string>
+    <string name="update_status_unset">Atur URL sumber update dulu untuk mengaktifkan pembaruan.</string>
+    <string name="update_checking">Memeriksa pembaruan…</string>
+    <string name="update_latest">Sudah versi terbaru (%1$s).</string>
+    <string name="update_available">Versi %1$s tersedia.</string>
+    <string name="update_downloading">Mengunduh… %1$d%%</string>
+    <string name="update_downloading_unknown">Mengunduh…</string>
+    <string name="update_ready">Unduhan selesai, siap dipasang.</string>
+    <string name="update_installing">Membuka pemasang Android…</string>
+    <string name="update_failed">Gagal: %1$s</string>
+    <string name="update_need_perm">Izin pemasangan belum diberikan.</string>
+    <string name="update_dialog_title">Pembaruan %1$s</string>
+    <string name="update_notes_empty">Perbaikan dan peningkatan terbaru.</string>
+    <string name="update_now">Unduh &amp; pasang</string>
+    <string name="update_later">Nanti</string>
+    <string name="update_perm_title">Izinkan pemasangan</string>
+    <string name="update_perm_msg">Android perlu izin “Instal aplikasi tidak dikenal” untuk AutoScroll agar bisa memasang pembaruan. Aktifkan, lalu kembali ke aplikasi.</string>
+    <string name="update_perm_open">Buka pengaturan</string>
+    <string name="row_install_perm">Izin pemasangan update</string>
+    <string name="row_update_source">Sumber update (URL manifest)</string>
+    <string name="update_url_unset">Belum diatur</string>
+    <string name="update_auto">Cek otomatis</string>
+    <string name="update_auto_sub">Saat aplikasi dibuka, maksimal tiap 6 jam</string>
+    <string name="update_source_title">URL manifest pembaruan</string>
+    <string name="update_source_hint">https://…/update.json</string>
+    <string name="update_source_save">Simpan</string>
+    <string name="update_source_saved">Sumber update disimpan</string>
+    <string name="update_source_invalid">URL harus diawali https://</string>
+    <string name="update_installed">Pembaruan terpasang</string>
+    <string name="update_install_failed">Pemasangan gagal: %1$s</string>
+    <string name="update_install_unknown">tidak diketahui</string>
+    <string name="toast_update_latest">Kamu memakai versi terbaru</string>
+    <string name="toast_update_failed">Pembaruan gagal, cek koneksi atau URL</string>
+    <string name="toast_install_perm_on">Izin pemasangan sudah aktif</string>
+
+    <string name="notif_channel">Status auto-scroll</string>
+    <string name="notif_on_title">AutoScroll aktif</string>
+    <string name="notif_on_text">Memantau akhir video TikTok</string>
+    <string name="notif_off_title">AutoScroll jeda</string>
+    <string name="notif_off_text">Ketuk untuk melanjutkan</string>
+    <string name="action_pause">Jeda</string>
+    <string name="action_start">Mulai</string>
+
+    <string name="toast_enable_acc">Aktifkan layanan aksesibilitas AutoScroll dulu</string>
+    <string name="toast_test_scheduled">Membuka TikTok · swipe tes dalam 5 detik</string>
+    <string name="toast_no_tiktok">TikTok tidak terpasang di perangkat ini</string>
+    <string name="toast_service_off">Layanan belum aktif</string>
+    <string name="toast_preset">Preset %1$s diterapkan</string>
+    <string name="toast_reset">Statistik direset</string>
+    <string name="toast_overlay_on">Izin overlay sudah aktif</string>
+    <string name="bubble_desc">Kontrol AutoScroll</string>
+</resources>

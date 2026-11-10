@@ -1,0 +1,548 @@
+package id.iqbal.tiktokauto
+
+import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.SharedPreferences
+import android.graphics.Path
+import android.graphics.PixelFormat
+import android.graphics.Rect
+import android.graphics.drawable.Icon
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.PowerManager
+import android.os.SystemClock
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.provider.Settings
+import android.view.Gravity
+import android.view.WindowManager
+import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
+import java.lang.ref.WeakReference
+
+class AutoScrollService : AccessibilityService() {
+
+    private val main = Handler(Looper.getMainLooper())
+    private lateinit var prefs: Prefs
+
+    private var wm: WindowManager? = null
+    private var bubble: BubbleView? = null
+    private var bubbleAttemptAt = 0L
+
+    private var currentPkg = ""
+    private var foregroundTikTok = false
+    private var wasTikTok = false
+    private var lastScanPct = -1f
+    private var endSince = 0L
+    private var noProgressSince = 0L
+    private var lastSwipeAt = 0L
+    private var gestureBusy = false
+    private var adSince = 0L
+    private var lastNotifyKey = ""
+    private var lastNotifyAt = 0L
+
+    private val tiktokPackages = TIKTOK_PACKAGES
+
+    private val toggleReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == ACTION_TOGGLE) toggle()
+        }
+    }
+
+    private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        when (key) {
+            PREF_ENABLED -> {
+                endSince = 0L
+                lastScanPct = -1f
+                if (!prefs.enabled) setBubble(BubbleView.STATE_OFF, -1f)
+                updateNotification()
+            }
+            PREF_BUBBLE -> {
+                syncBubble()
+                updateNotification()
+            }
+        }
+    }
+
+    private val poll = object : Runnable {
+        override fun run() {
+            try {
+                tick()
+            } catch (_: Exception) {
+            }
+            main.postDelayed(this, if (foregroundTikTok) 300L else 1200L)
+        }
+    }
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        prefs = Prefs(this)
+        prefs.listen(prefListener)
+        instance = WeakReference(this)
+        wm = getSystemService(WINDOW_SERVICE) as WindowManager
+
+        val filter = IntentFilter().apply {
+            addAction(ACTION_TOGGLE)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(toggleReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(toggleReceiver, filter)
+        }
+
+        ensureChannel()
+        syncBubble()
+        updateNotification()
+        main.removeCallbacks(poll)
+        main.post(poll)
+    }
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            val pkg = event.packageName?.toString().orEmpty()
+            if (pkg.isNotEmpty()) currentPkg = pkg
+        }
+    }
+
+    override fun onInterrupt() {
+    }
+
+    override fun onUnbind(intent: Intent?): Boolean {
+        cleanup()
+        return super.onUnbind(intent)
+    }
+
+    override fun onDestroy() {
+        cleanup()
+        super.onDestroy()
+    }
+
+    private fun cleanup() {
+        main.removeCallbacks(poll)
+        try {
+            unregisterReceiver(toggleReceiver)
+        } catch (_: Exception) {
+        }
+        if (::prefs.isInitialized) prefs.unlisten(prefListener)
+        removeBubble()
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        nm.cancel(NOTIFY_ID)
+        if (instance?.get() === this) instance = null
+    }
+
+    private fun tick() {
+        if (!::prefs.isInitialized) return
+
+        if (!prefs.enabled) {
+            setBubble(BubbleView.STATE_OFF, -1f)
+            maybeNotify()
+            return
+        }
+
+        val power = getSystemService(POWER_SERVICE) as PowerManager
+        if (!power.isInteractive) {
+            setBubble(BubbleView.STATE_IDLE, -1f)
+            return
+        }
+
+        if (prefs.bubble) maybeAddBubble()
+
+        val root = rootInActiveWindow
+        if (root != null) {
+            val pkg = root.packageName?.toString().orEmpty()
+            if (pkg.isNotEmpty()) currentPkg = pkg
+        }
+
+        foregroundTikTok = currentPkg in tiktokPackages
+        val now = SystemClock.elapsedRealtime()
+
+        if (foregroundTikTok && !wasTikTok) {
+            lastScanPct = -1f
+            endSince = 0L
+            noProgressSince = 0L
+            if (now - lastSwipeAt > 10_000L) lastSwipeAt = now
+        }
+        wasTikTok = foregroundTikTok
+
+        if (prefs.onlyTikTok && !foregroundTikTok) {
+            setBubble(BubbleView.STATE_IDLE, -1f)
+            lastScanPct = -1f
+            endSince = 0L
+            noProgressSince = 0L
+            maybeNotify()
+            return
+        }
+        if (root == null) return
+
+        val scan = scan(root)
+
+        if (scan.inputFocused) {
+            setBubble(BubbleView.STATE_IDLE, scan.pct)
+            return
+        }
+
+        setBubble(
+            if (scan.pct >= 0f) BubbleView.STATE_ACTIVE else BubbleView.STATE_SCAN,
+            scan.pct
+        )
+        maybeNotify()
+
+        if (gestureBusy) return
+        if (now - lastSwipeAt < prefs.postScrollDelay + 500L) return
+
+        if (scan.ad && prefs.skipAds) {
+            if (adSince == 0L) adSince = now
+            if (now - adSince >= 1500L) {
+                adSince = 0L
+                doSwipe()
+                return
+            }
+        } else {
+            adSince = 0L
+        }
+
+        val mode = prefs.mode
+
+        if (scan.pct < 0f) {
+            lastScanPct = -1f
+            if (noProgressSince == 0L) noProgressSince = now
+            val fallbackOn = mode != Prefs.MODE_PROGRESS || prefs.autoFallback
+            val settle = if (mode == Prefs.MODE_TIMER) 0L else 2500L
+            if (fallbackOn && now - noProgressSince >= settle &&
+                now - lastSwipeAt >= prefs.timerInterval
+            ) {
+                doSwipe()
+            }
+            return
+        }
+        noProgressSince = 0L
+
+        if (mode == Prefs.MODE_TIMER) {
+            if (now - lastSwipeAt >= prefs.timerInterval) doSwipe()
+            lastScanPct = scan.pct
+            return
+        }
+
+        if (scan.pct >= prefs.threshold) {
+            if (endSince == 0L) endSince = now
+            if (now - endSince >= 450L) {
+                endSince = 0L
+                doSwipe()
+                return
+            }
+        } else {
+            endSince = 0L
+        }
+
+        val previous = lastScanPct
+        if (previous >= 70f && scan.pct <= 15f && previous - scan.pct >= 40f) {
+            lastScanPct = scan.pct
+            doSwipe()
+            return
+        }
+        lastScanPct = scan.pct
+    }
+
+    private class Scan(val pct: Float, val ad: Boolean, val inputFocused: Boolean)
+
+    private fun scan(root: AccessibilityNodeInfo): Scan {
+        var best: AccessibilityNodeInfo? = null
+        var bestScore = -1
+        var ad = false
+        var input = false
+        var visited = 0
+        val bounds = Rect()
+        val queue = ArrayDeque<AccessibilityNodeInfo>()
+        queue.add(root)
+
+        while (queue.isNotEmpty() && visited < 600) {
+            val node = queue.removeFirst()
+            visited++
+
+            val cls = node.className?.toString().orEmpty()
+            if (!input && (cls == "android.widget.EditText" || node.isEditable)) input = true
+
+            if (!ad) {
+                val desc = node.contentDescription?.toString().orEmpty()
+                val text = node.text?.toString().orEmpty()
+                ad = desc.contains("sponsor", true) || text.contains("sponsor", true) ||
+                    desc.contains("iklan", true) || text.contains("iklan", true) ||
+                    desc.contains("bersponsor", true) || text.contains("bersponsor", true)
+            }
+
+            val range = node.rangeInfo
+            if (range != null && range.max > range.min) {
+                var score = 10
+                if (cls.contains("SeekBar")) score += 100
+                node.getBoundsInScreen(bounds)
+                score += (bounds.width() / 40).coerceIn(0, 40)
+                if (score > bestScore) {
+                    bestScore = score
+                    best = node
+                }
+            }
+
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                queue.add(child)
+            }
+        }
+
+        var pct = -1f
+        val target = best
+        if (target != null) {
+            val range = target.rangeInfo
+            if (range != null && range.max > range.min) {
+                pct = ((range.current - range.min) / (range.max - range.min) * 100f)
+                    .coerceIn(0f, 100f)
+            }
+        }
+        return Scan(pct, ad, input)
+    }
+
+    private fun doSwipe(force: Boolean = false) {
+        if (!::prefs.isInitialized) return
+        if ((!prefs.enabled && !force) || gestureBusy) return
+
+        val dm = resources.displayMetrics
+        val width = dm.widthPixels.toFloat()
+        val height = dm.heightPixels.toFloat()
+        val x = width * 0.5f
+        val startY = height * (prefs.swipeStart / 100f)
+        val endY = startY - height * (prefs.swipeDistance / 100f)
+        if (startY <= 0f || endY < height * 0.1f) return
+
+        val duration = prefs.swipeDuration.toLong().coerceIn(100L, 1000L)
+        val path = Path().apply {
+            moveTo(x, startY)
+            lineTo(x, endY)
+        }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0L, duration))
+            .build()
+
+        gestureBusy = true
+        lastSwipeAt = SystemClock.elapsedRealtime()
+        lastScanPct = -1f
+        endSince = 0L
+        noProgressSince = 0L
+
+        val launched = dispatchGesture(gesture, object : GestureResultCallback() {
+            override fun onCompleted(gestureDescription: GestureDescription?) {
+                gestureBusy = false
+                prefs.addScroll()
+                feedback()
+            }
+
+            override fun onCancelled(gestureDescription: GestureDescription?) {
+                gestureBusy = false
+            }
+        }, null)
+
+        if (!launched) {
+            gestureBusy = false
+            return
+        }
+        main.postDelayed({ gestureBusy = false }, duration + 500L)
+    }
+
+    fun testSwipe() {
+        main.postDelayed({
+            val pkg = rootInActiveWindow?.packageName?.toString().orEmpty()
+            if (pkg in tiktokPackages) {
+                foregroundTikTok = true
+                currentPkg = pkg
+                doSwipe(force = true)
+            }
+        }, 5000L)
+    }
+
+    fun toggle() {
+        if (!::prefs.isInitialized) return
+        prefs.enabled = !prefs.enabled
+        endSince = 0L
+        lastScanPct = -1f
+        setBubble(if (prefs.enabled) BubbleView.STATE_SCAN else BubbleView.STATE_OFF, -1f)
+        updateNotification()
+    }
+
+    fun refreshBubble() {
+        if (::prefs.isInitialized) syncBubble()
+    }
+
+    private fun feedback() {
+        if (prefs.vibrate) {
+            val vibrator = getSystemService(Vibrator::class.java)
+            vibrator?.vibrate(VibrationEffect.createOneShot(16L, VibrationEffect.DEFAULT_AMPLITUDE))
+        }
+        setBubble(BubbleView.STATE_ACTIVE, 0f)
+        updateNotification()
+    }
+
+    private fun setBubble(state: Int, pct: Float) {
+        bubble?.set(state, pct)
+    }
+
+    private fun maybeAddBubble() {
+        if (bubble != null) return
+        val now = SystemClock.elapsedRealtime()
+        if (now - bubbleAttemptAt < 4000L) return
+        bubbleAttemptAt = now
+        syncBubble()
+    }
+
+    private fun syncBubble() {
+        if (!::prefs.isInitialized) return
+        if (prefs.bubble && bubble == null) addBubble() else if (!prefs.bubble) removeBubble()
+    }
+
+    private fun addBubble() {
+        if (!Settings.canDrawOverlays(this)) return
+        val manager = wm ?: return
+        val size = dp(62)
+        val view = BubbleView(this)
+        view.onTap = { toggle() }
+        view.onLongPress = {
+            startActivity(
+                Intent(this, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            )
+        }
+
+        val params = WindowManager.LayoutParams(
+            size,
+            size,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            PixelFormat.TRANSLUCENT
+        )
+        params.gravity = Gravity.TOP or Gravity.START
+
+        val dm = resources.displayMetrics
+        params.x = if (prefs.bubbleX >= 0) {
+            prefs.bubbleX.coerceIn(0, (dm.widthPixels - size).coerceAtLeast(0))
+        } else {
+            (dm.widthPixels - size - dp(8)).coerceAtLeast(0)
+        }
+        params.y = if (prefs.bubbleY >= 0) {
+            prefs.bubbleY.coerceIn(0, (dm.heightPixels - size).coerceAtLeast(0))
+        } else {
+            dm.heightPixels / 3
+        }
+
+        view.onMove = { dx, dy ->
+            params.x = (params.x + dx.toInt()).coerceIn(0, (dm.widthPixels - size).coerceAtLeast(0))
+            params.y = (params.y + dy.toInt()).coerceIn(0, (dm.heightPixels - size).coerceAtLeast(0))
+            try {
+                manager.updateViewLayout(view, params)
+            } catch (_: Exception) {
+            }
+        }
+        view.onDragEnd = {
+            prefs.bubbleX = params.x
+            prefs.bubbleY = params.y
+        }
+
+        try {
+            manager.addView(view, params)
+            bubble = view
+            view.set(if (prefs.enabled) BubbleView.STATE_SCAN else BubbleView.STATE_OFF, -1f)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun removeBubble() {
+        val view = bubble ?: return
+        bubble = null
+        try {
+            wm?.removeView(view)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun ensureChannel() {
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        if (nm.getNotificationChannel(CHANNEL_ID) == null) {
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                getString(R.string.notif_channel),
+                NotificationManager.IMPORTANCE_LOW
+            )
+            channel.setShowBadge(false)
+            nm.createNotificationChannel(channel)
+        }
+    }
+
+    private fun maybeNotify() {
+        if (!::prefs.isInitialized) return
+        val key = "${prefs.enabled}|${prefs.mode}|${prefs.bubble}"
+        val now = SystemClock.elapsedRealtime()
+        if (key == lastNotifyKey && now - lastNotifyAt < 6000L) return
+        updateNotification()
+    }
+
+    private fun updateNotification() {
+        if (!::prefs.isInitialized) return
+        lastNotifyKey = "${prefs.enabled}|${prefs.mode}|${prefs.bubble}"
+        lastNotifyAt = SystemClock.elapsedRealtime()
+
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val open = PendingIntent.getActivity(
+            this,
+            20,
+            Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val toggleIntent = PendingIntent.getBroadcast(
+            this,
+            21,
+            Intent(ACTION_TOGGLE).setPackage(packageName),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val action = Notification.Action.Builder(
+            Icon.createWithResource(this, R.drawable.ic_notification),
+            getString(if (prefs.enabled) R.string.action_pause else R.string.action_start),
+            toggleIntent
+        ).build()
+
+        val builder = Notification.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(
+                getString(if (prefs.enabled) R.string.notif_on_title else R.string.notif_off_title)
+            )
+            .setContentText(
+                getString(if (prefs.enabled) R.string.notif_on_text else R.string.notif_off_text)
+            )
+            .setContentIntent(open)
+            .setOnlyAlertOnce(true)
+            .setOngoing(prefs.enabled)
+            .addAction(action)
+
+        try {
+            nm.notify(NOTIFY_ID, builder.build())
+        } catch (_: SecurityException) {
+        }
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    companion object {
+        private const val CHANNEL_ID = "autoscroll.status"
+        private const val NOTIFY_ID = 1001
+        private const val ACTION_TOGGLE = "id.iqbal.tiktokauto.action.TOGGLE"
+        private const val PREF_ENABLED = "enabled"
+        private const val PREF_BUBBLE = "bubble"
+
+        var instance: WeakReference<AutoScrollService>? = null
+            private set
+    }
+}

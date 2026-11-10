@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install SDK components
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" > /dev/null
+
+      - name: Restore signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.AUTOSCROLL_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::Secret AUTOSCROLL_KEYSTORE_BASE64 belum diisi."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/keys"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/keys/autoscroll.keystore"
+          {
+            echo "AUTOSCROLL_KEYSTORE=$RUNNER_TEMP/keys/autoscroll.keystore"
+            echo "AUTOSCROLL_KEYSTORE_PASSWORD=android"
+            echo "AUTOSCROLL_KEY_ALIAS=androiddebugkey"
+            echo "AUTOSCROLL_KEY_PASSWORD=android"
+          } >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        env:
+          AUTOSCROLL_UPDATE_URL: https://github.com/${{ github.repository }}/releases/latest/download/update.json
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:assembleRelease
+
+      - name: Generate update manifest
+        run: |
+          META=app/build/outputs/apk/release/output-metadata.json
+          CODE=$(jq -r '.elements[0].versionCode' "$META")
+          NAME=$(jq -r '.elements[0].versionName' "$META")
+          SHA=$(sha256sum app/build/outputs/apk/release/app-release.apk | awk '{print $1}')
+          NOTES=$(git tag -l --format='%(contents:subject)' "$GITHUB_REF_NAME")
+          if [ -z "$NOTES" ]; then NOTES="Rilis ${GITHUB_REF_NAME}"; fi
+
+          mkdir -p updates
+          jq -n \
+            --argjson code "$CODE" \
+            --arg name "$NAME" \
+            --arg sha "$SHA" \
+            --arg notes "$NOTES" \
+            '{versionCode:$code, versionName:$name, apkUrl:"app-release.apk", sha256:$sha, notes:$notes}' \
+            > updates/update.json
+          cat updates/update.json
+          {
+            echo "## AutoScroll ${NAME}"
+            echo ""
+            echo "$NOTES"
+            echo ""
+            echo "Unduh \`update.json\` + \`app-release.apk\` dari halaman ini, atau pasang APK langsung melalui menu Pembaruan di aplikasi versi 1.2+."
+          } > release-notes.md
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: AutoScroll ${{ github.ref_name }}
+          body_path: release-notes.md
+          files: |
+            app/build/outputs/apk/release/app-release.apk
+            updates/update.json
+          fail_on_unmatched_files: true
