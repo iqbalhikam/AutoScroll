@@ -84,7 +84,7 @@ class AutoScrollService : AccessibilityService() {
         override fun run() {
             try {
                 tick()
-            } catch (_: Exception) {
+            } catch (_: Throwable) {
             }
             main.postDelayed(this, if (foregroundTikTok) 300L else 1200L)
         }
@@ -409,8 +409,11 @@ class AutoScrollService : AccessibilityService() {
         val launched = dispatchGesture(gesture, object : GestureResultCallback() {
             override fun onCompleted(gestureDescription: GestureDescription?) {
                 gestureBusy = false
-                prefs.addScroll()
-                feedback(viaHand)
+                try {
+                    prefs.addScroll()
+                    feedback(viaHand)
+                } catch (_: Throwable) {
+                }
             }
 
             override fun onCancelled(gestureDescription: GestureDescription?) {

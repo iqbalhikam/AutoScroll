@@ -111,7 +111,7 @@ class HandScrollService : Service() {
             processFrame(frame)
             frameFailures = 0
             lastError = null
-        } catch (error: Exception) {
+        } catch (error: Throwable) {
             frameFailures++
             lastError = error.message ?: error.javaClass.simpleName
             Log.w(TAG, "deteksi tangan gagal", error)
@@ -130,13 +130,17 @@ class HandScrollService : Service() {
         val yuv = YuvImage(data, ImageFormat.NV21, w, h, null)
         val out = ByteArrayOutputStream()
         yuv.compressToJpeg(Rect(0, 0, w, h), JPEG_QUALITY, out)
+        val bytes = out.toByteArray()
         val options = BitmapFactory.Options().apply { inBitmap = reusableBitmap }
         val bitmap = try {
-            BitmapFactory.decodeByteArray(out.toByteArray(), 0, out.size(), options)
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
         } catch (_: IllegalArgumentException) {
-            BitmapFactory.decodeByteArray(out.toByteArray(), 0, out.size())
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
         } ?: return
         reusableBitmap = bitmap
+
+        // Re-check landmarker setelah decode bitmap (bisa null jika onDestroy dipanggil)
+        if (landmarker == null) return
 
         val image = BitmapImageBuilder(bitmap).build()
         mpTimestampMs += FRAME_MIN_MS
@@ -272,11 +276,12 @@ class HandScrollService : Service() {
     override fun onDestroy() {
         main.removeCallbacks(loop)
         stopCamera()
-        try {
-            landmarker?.close()
-        } catch (_: Exception) {
-        }
+        val lm = landmarker
         landmarker = null
+        try {
+            lm?.close()
+        } catch (_: Throwable) {
+        }
         synchronized(track) { track.clear() }
         isRunning = false
         state = STATE_OFF
@@ -302,7 +307,7 @@ class HandScrollService : Service() {
                 .setMinTrackingConfidence(0.5f)
                 .build()
         )
-    } catch (error: Exception) {
+    } catch (error: Throwable) {
         Log.w(TAG, "detektor tangan tidak tersedia", error)
         lastError = error.message ?: error.javaClass.simpleName
         null
