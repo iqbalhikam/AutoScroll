@@ -11,8 +11,13 @@ android {
         applicationId = "id.iqbal.tiktokauto"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.5.2"
+        versionCode = 9
+        versionName = "1.6.0"
+
+        ndk {
+            abiFilters.add("arm64-v8a")
+        }
+
 
         val updateUrl = (
             providers.gradleProperty("updateUrl").orNull
@@ -76,5 +81,5 @@ android {
 }
 
 dependencies {
-    implementation("com.google.android.gms:play-services-mlkit-face-detection:17.1.0")
+    implementation("com.google.mediapipe:tasks-vision:0.10.21")
 }

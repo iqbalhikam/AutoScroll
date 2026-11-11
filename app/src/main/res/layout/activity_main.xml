@@ -726,7 +726,7 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- BLINK -->
+        <!-- HAND GESTURE -->
         <LinearLayout style="@style/Card">
 
             <LinearLayout
@@ -737,7 +737,7 @@
 
                 <ImageView
                     style="@style/Icon"
-                    android:contentDescription="@string/blink_title"
+                    android:contentDescription="@string/hand_title"
                     android:src="@drawable/ic_eye"
                     android:tint="@color/accent" />
 
@@ -750,25 +750,62 @@
 
                     <TextView
                         style="@style/RowTitle"
-                        android:text="@string/blink_title"
+                        android:text="@string/hand_title"
                         android:textSize="16sp" />
 
                     <TextView
                         style="@style/RowSub"
-                        android:text="@string/blink_sub" />
+                        android:text="@string/hand_sub" />
                 </LinearLayout>
 
                 <Switch
-                    android:id="@+id/swBlink"
+                    android:id="@+id/swHand"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
             <TextView
-                android:id="@+id/blinkStatus"
+                android:id="@+id/handStatus"
                 style="@style/Caption"
                 android:layout_marginTop="10dp"
-                android:text="@string/blink_status_off" />
+                android:text="@string/hand_status_off" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/RowTitle"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:text="@string/hand_sensitivity_title" />
+
+                    <TextView
+                        android:id="@+id/handSensitivityValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="18%"
+                        android:textColor="@color/accent"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/handSensitivityBar"
+                    style="@style/Seek"
+                    android:max="30"
+                    android:min="10" />
+
+                <TextView style="@style/Caption" android:text="@string/hand_sensitivity_hint" />
+            </LinearLayout>
 
             <View
                 android:layout_width="match_parent"
@@ -778,7 +815,7 @@
                 android:background="@color/divider" />
 
             <LinearLayout
-                android:id="@+id/rowBlinkPerm"
+                android:id="@+id/rowHandPerm"
                 style="@style/Row"
                 android:clickable="true"
                 android:focusable="true">
@@ -796,7 +833,7 @@
                     android:text="@string/row_camera_perm" />
 
                 <TextView
-                    android:id="@+id/blinkPermStatus"
+                    android:id="@+id/handPermStatus"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/not_granted"
@@ -813,7 +850,7 @@
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/rowBlinkTest"
+                android:id="@+id/rowHandTest"
                 style="@style/Row"
                 android:layout_marginTop="6dp"
                 android:clickable="true"
@@ -821,7 +858,7 @@
 
                 <ImageView
                     style="@style/Icon"
-                    android:contentDescription="@string/row_blink_test"
+                    android:contentDescription="@string/row_hand_test"
                     android:src="@drawable/ic_eye"
                     android:tint="@color/accent" />
 
@@ -834,11 +871,11 @@
 
                     <TextView
                         style="@style/RowTitle"
-                        android:text="@string/row_blink_test" />
+                        android:text="@string/row_hand_test" />
 
                     <TextView
                         style="@style/RowSub"
-                        android:text="@string/row_blink_test_sub" />
+                        android:text="@string/row_hand_test_sub" />
                 </LinearLayout>
 
                 <ImageView
@@ -853,7 +890,7 @@
             <TextView
                 style="@style/Caption"
                 android:layout_marginTop="8dp"
-                android:text="@string/blink_note"
+                android:text="@string/hand_note"
                 android:textColor="@color/textMuted"
                 android:textSize="11sp" />
         </LinearLayout>

@@ -64,13 +64,15 @@ class MainActivity : Activity() {
     private lateinit var swVibrate: Switch
     private lateinit var swBubble: Switch
 
-    private lateinit var swBlink: Switch
-    private lateinit var blinkStatus: TextView
-    private lateinit var rowBlinkPerm: android.widget.LinearLayout
-    private lateinit var rowBlinkTest: android.widget.LinearLayout
-    private lateinit var blinkPermStatus: TextView
-    private var blinkSyncing = false
-    private var pendingBlink = false
+    private lateinit var swHand: Switch
+    private lateinit var handStatus: TextView
+    private lateinit var handSensitivityBar: SeekBar
+    private lateinit var handSensitivityValue: TextView
+    private lateinit var rowHandPerm: android.widget.LinearLayout
+    private lateinit var rowHandTest: android.widget.LinearLayout
+    private lateinit var handPermStatus: TextView
+    private var handSyncing = false
+    private var pendingHand = false
 
     private lateinit var presetSantai: TextView
     private lateinit var presetSeimbang: TextView
@@ -101,14 +103,14 @@ class MainActivity : Activity() {
         setupSeekBars()
         setupMode()
         setupSwitches()
-        setupBlink()
+        setupHand()
         setupActions()
         setupUpdate()
     }
 
     override fun onResume() {
         super.onResume()
-        if (prefs.blinkEnabled) startBlinkService()
+        if (prefs.handEnabled) startHandService()
         refresh()
         maybeInstallPending()
         maybeAutoCheck()
@@ -118,7 +120,7 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         if (isFinishing) {
             AutoScrollService.instance?.get()?.onUiClosed()
-            stopService(Intent(this, BlinkScrollService::class.java))
+            stopService(Intent(this, HandScrollService::class.java))
         }
         io.shutdownNow()
         super.onDestroy()
@@ -134,16 +136,16 @@ class MainActivity : Activity() {
             val granted = grantResults.isNotEmpty() &&
                 grantResults[0] == PackageManager.PERMISSION_GRANTED
             if (granted) {
-                if (pendingBlink) {
-                    prefs.blinkEnabled = true
-                    startBlinkService()
-                    toast(getString(R.string.toast_blink_on))
+                if (pendingHand) {
+                    prefs.handEnabled = true
+                    startHandService()
+                    toast(getString(R.string.toast_hand_on))
                 }
             } else {
-                prefs.blinkEnabled = false
-                toast(getString(R.string.toast_blink_need_perm))
+                prefs.handEnabled = false
+                toast(getString(R.string.toast_hand_need_perm))
             }
-            pendingBlink = false
+            pendingHand = false
         }
         refresh()
     }
@@ -183,11 +185,13 @@ class MainActivity : Activity() {
         swVibrate = findViewById(R.id.swVibrate)
         swBubble = findViewById(R.id.swBubble)
 
-        swBlink = findViewById(R.id.swBlink)
-        blinkStatus = findViewById(R.id.blinkStatus)
-        rowBlinkPerm = findViewById(R.id.rowBlinkPerm)
-        rowBlinkTest = findViewById(R.id.rowBlinkTest)
-        blinkPermStatus = findViewById(R.id.blinkPermStatus)
+        swHand = findViewById(R.id.swHand)
+        handStatus = findViewById(R.id.handStatus)
+        handSensitivityBar = findViewById(R.id.handSensitivityBar)
+        handSensitivityValue = findViewById(R.id.handSensitivityValue)
+        rowHandPerm = findViewById(R.id.rowHandPerm)
+        rowHandTest = findViewById(R.id.rowHandTest)
+        handPermStatus = findViewById(R.id.handPermStatus)
 
         presetSantai = findViewById(R.id.presetSantai)
         presetSeimbang = findViewById(R.id.presetSeimbang)
@@ -218,6 +222,9 @@ class MainActivity : Activity() {
         }
         wireSeek(distanceBar, distanceValue, { "$it%" }, { prefs.swipeDistance }) {
             prefs.swipeDistance = it
+        }
+        wireSeek(handSensitivityBar, handSensitivityValue, { "$it%" }, { prefs.handSensitivity }) {
+            prefs.handSensitivity = it
         }
     }
 
@@ -288,48 +295,48 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun setupBlink() {
-        swBlink.setOnCheckedChangeListener { _, checked ->
-            if (blinkSyncing) return@setOnCheckedChangeListener
-            if (checked) enableBlink() else disableBlink()
+    private fun setupHand() {
+        swHand.setOnCheckedChangeListener { _, checked ->
+            if (handSyncing) return@setOnCheckedChangeListener
+            if (checked) enableHand() else disableHand()
         }
-        rowBlinkPerm.setOnClickListener { requestCameraPermission() }
-        rowBlinkTest.setOnClickListener {
-            startActivity(Intent(this, BlinkTestActivity::class.java))
+        rowHandPerm.setOnClickListener { requestCameraPermission() }
+        rowHandTest.setOnClickListener {
+            startActivity(Intent(this, HandTestActivity::class.java))
         }
     }
 
-    private fun enableBlink() {
-        if (!isAccessibilityEnabled()) toast(getString(R.string.toast_blink_need_acc))
+    private fun enableHand() {
+        if (!isAccessibilityEnabled()) toast(getString(R.string.toast_hand_need_acc))
         if (!cameraGranted()) {
-            pendingBlink = true
+            pendingHand = true
             requestPermissions(arrayOf(Manifest.permission.CAMERA), 8)
             return
         }
-        prefs.blinkEnabled = true
+        prefs.handEnabled = true
         requestNotificationPermission()
-        startBlinkService()
-        refreshBlink()
+        startHandService()
+        refreshHand()
     }
 
-    private fun disableBlink() {
-        pendingBlink = false
-        prefs.blinkEnabled = false
-        stopService(Intent(this, BlinkScrollService::class.java))
-        toast(getString(R.string.toast_blink_off))
-        refreshBlink()
+    private fun disableHand() {
+        pendingHand = false
+        prefs.handEnabled = false
+        stopService(Intent(this, HandScrollService::class.java))
+        toast(getString(R.string.toast_hand_off))
+        refreshHand()
     }
 
-    private fun startBlinkService() {
+    private fun startHandService() {
         if (!cameraGranted()) {
-            prefs.blinkEnabled = false
+            prefs.handEnabled = false
             return
         }
-        if (BlinkScrollService.isRunning) return
+        if (HandScrollService.isRunning) return
         try {
-            startForegroundService(Intent(this, BlinkScrollService::class.java))
+            startForegroundService(Intent(this, HandScrollService::class.java))
         } catch (_: Exception) {
-            toast(getString(R.string.blink_status_error))
+            toast(getString(R.string.hand_status_error))
         }
     }
 
@@ -338,32 +345,32 @@ class MainActivity : Activity() {
             toast(getString(R.string.toast_camera_on))
             return
         }
-        pendingBlink = false
+        pendingHand = false
         requestPermissions(arrayOf(Manifest.permission.CAMERA), 8)
     }
 
     private fun cameraGranted(): Boolean =
         checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
-    private fun refreshBlink() {
-        blinkSyncing = true
+    private fun refreshHand() {
+        handSyncing = true
         try {
-            if (swBlink.isChecked != prefs.blinkEnabled) {
-                swBlink.isChecked = prefs.blinkEnabled
+            if (swHand.isChecked != prefs.handEnabled) {
+                swHand.isChecked = prefs.handEnabled
             }
         } finally {
-            blinkSyncing = false
+            handSyncing = false
         }
-        paintGrant(blinkPermStatus, cameraGranted())
-        blinkStatus.text = getString(
+        paintGrant(handPermStatus, cameraGranted())
+        handStatus.text = getString(
             when {
-                !prefs.blinkEnabled -> R.string.blink_status_off
-                !cameraGranted() -> R.string.blink_status_no_perm
-                else -> when (BlinkScrollService.state) {
-                    BlinkScrollService.STATE_FACE -> R.string.blink_status_face
-                    BlinkScrollService.STATE_ACTIVE -> R.string.blink_status_active
-                    BlinkScrollService.STATE_ERROR -> R.string.blink_status_error
-                    else -> R.string.blink_status_waiting
+                !prefs.handEnabled -> R.string.hand_status_off
+                !cameraGranted() -> R.string.hand_status_no_perm
+                else -> when (HandScrollService.state) {
+                    HandScrollService.STATE_HAND -> R.string.hand_status_hand
+                    HandScrollService.STATE_ACTIVE -> R.string.hand_status_active
+                    HandScrollService.STATE_ERROR -> R.string.hand_status_error
+                    else -> R.string.hand_status_waiting
                 }
             }
         )
@@ -688,18 +695,20 @@ class MainActivity : Activity() {
             delayBar.progress = prefs.postScrollDelay
             durationBar.progress = prefs.swipeDuration
             distanceBar.progress = prefs.swipeDistance
+            handSensitivityBar.progress = prefs.handSensitivity
 
             thresholdValue.text = "${prefs.threshold}%"
             intervalValue.text = "${prefs.timerInterval / 1000} dtk"
             delayValue.text = formatSeconds(prefs.postScrollDelay)
             durationValue.text = "${prefs.swipeDuration} ms"
             distanceValue.text = "${prefs.swipeDistance}%"
+            handSensitivityValue.text = "${prefs.handSensitivity}%"
 
             refreshMode()
             refreshStatus()
             refreshStats()
             refreshUpdate()
-            refreshBlink()
+            refreshHand()
         } finally {
             syncing = false
         }

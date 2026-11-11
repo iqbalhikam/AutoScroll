@@ -9,8 +9,12 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
+import android.graphics.Rect
 import android.graphics.SurfaceTexture
+import android.graphics.YuvImage
 import android.hardware.Camera
 import android.os.Build
 import android.os.Handler
@@ -21,22 +25,23 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.Surface
 import android.view.WindowManager
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.face.Face
-import com.google.mlkit.vision.face.FaceDetection
-import com.google.mlkit.vision.face.FaceDetector
-import com.google.mlkit.vision.face.FaceDetectorOptions
-import java.util.concurrent.Executor
+import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
+import com.google.mediapipe.tasks.vision.core.RunningMode
+import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
+import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
+import java.io.ByteArrayOutputStream
+import java.util.ArrayDeque
 import kotlin.math.abs
 
-class BlinkScrollService : Service() {
+class HandScrollService : Service() {
 
     private val main = Handler(Looper.getMainLooper())
-    private val mainExecutor = Executor { main.post(it) }
 
     private var camera: Camera? = null
     private var surface: SurfaceTexture? = null
-    private var detector: FaceDetector? = null
+    private var landmarker: HandLandmarker? = null
 
     private var frameWidth = 0
     private var frameHeight = 0
@@ -51,10 +56,16 @@ class BlinkScrollService : Service() {
     private var nextOpenAt = 0L
     private var cameraOpenedAt = 0L
 
-    private var eyesClosedAt = 0L
-    private var firstBlinkAt = 0L
-    private var lastTriggerAt = 0L
+    private var mpTimestampMs = 0L
+    private var reusableBitmap: Bitmap? = null
     private var frameFailures = 0
+    private var lastTriggerAt = 0L
+
+    private class TrackPoint(val at: Long, val y: Float)
+
+    private val track = ArrayDeque<TrackPoint>()
+
+    private val prefs by lazy { Prefs(this) }
 
     private val loop = object : Runnable {
         override fun run() {
@@ -86,7 +97,7 @@ class BlinkScrollService : Service() {
         }
         framesReceived++
         val now = SystemClock.elapsedRealtime()
-        if (processing) {
+        if (processing || now - lastFrameAt < FRAME_MIN_MS) {
             cam.addCallbackBuffer(data)
             return@PreviewCallback
         }
@@ -96,27 +107,116 @@ class BlinkScrollService : Service() {
         val frame = data.copyOf()
         cam.addCallbackBuffer(data)
 
-        val faceDetector = detector
-        if (faceDetector == null) {
+        try {
+            processFrame(frame)
+            frameFailures = 0
+            lastError = null
+        } catch (error: Exception) {
+            frameFailures++
+            lastError = error.message ?: error.javaClass.simpleName
+            Log.w(TAG, "deteksi tangan gagal", error)
+            if (frameFailures == FAILURES_BEFORE_ERROR) setState(STATE_ERROR)
+        } finally {
             processing = false
-            return@PreviewCallback
         }
-        val image = InputImage.fromByteArray(
-            frame,
-            frameWidth,
-            frameHeight,
-            frameRotation,
-            InputImage.IMAGE_FORMAT_NV21
-        )
-        faceDetector.process(image)
-            .addOnSuccessListener(mainExecutor) { faces -> onFaces(faces) }
-            .addOnFailureListener(mainExecutor) { error ->
-                processing = false
-                frameFailures++
-                lastError = error.message ?: error.javaClass.simpleName
-                Log.w(TAG, "deteksi wajah gagal", error)
-                if (frameFailures == FAILURES_BEFORE_ERROR) setState(STATE_ERROR)
+    }
+
+    private fun processFrame(data: ByteArray) {
+        val marker = landmarker ?: return
+        val w = frameWidth
+        val h = frameHeight
+        if (w <= 0 || h <= 0) return
+
+        val yuv = YuvImage(data, ImageFormat.NV21, w, h, null)
+        val out = ByteArrayOutputStream()
+        yuv.compressToJpeg(Rect(0, 0, w, h), JPEG_QUALITY, out)
+        val options = BitmapFactory.Options().apply { inBitmap = reusableBitmap }
+        val bitmap = try {
+            BitmapFactory.decodeByteArray(out.toByteArray(), 0, out.size(), options)
+        } catch (_: IllegalArgumentException) {
+            BitmapFactory.decodeByteArray(out.toByteArray(), 0, out.size())
+        } ?: return
+        reusableBitmap = bitmap
+
+        val image = BitmapImageBuilder(bitmap).build()
+        mpTimestampMs += FRAME_MIN_MS
+        val processing = ImageProcessingOptions.builder()
+            .setRotationDegrees(frameRotation)
+            .build()
+        val result = marker.detectForVideo(image, processing, mpTimestampMs)
+        image.close()
+        onHandResult(result)
+    }
+
+    private fun onHandResult(result: HandLandmarkerResult) {
+        framesAnalyzed++
+        if (!isRunning || camera == null) return
+
+        val hand = result.landmarks().firstOrNull()
+        if (hand == null || hand.size < 21) {
+            handVisible = false
+            palmY = -1f
+            palmVel = 0f
+            synchronized(track) {
+                val oldest = track.peekFirst()
+                if (oldest == null || SystemClock.elapsedRealtime() - oldest.at > 600L) track.clear()
             }
+            setState(STATE_ACTIVE)
+            return
+        }
+
+        handVisible = true
+        handFrames++
+        val y = (hand[0].y() + hand[5].y() + hand[9].y() + hand[13].y() + hand[17].y()) / 5f
+        val now = SystemClock.elapsedRealtime()
+        palmY = y
+
+        val swiped = synchronized(track) {
+            if (track.isEmpty() || now - track.peekLast().at > 400L) track.clear()
+            track.addLast(TrackPoint(now, y))
+            while (track.isNotEmpty() && now - track.peekFirst().at > SWIPE_WINDOW_MS) {
+                track.pollFirst()
+            }
+            palmVel = -computeVelocity(track)
+            if (now - lastTriggerAt < TRIGGER_COOLDOWN_MS) false else checkSwipe(track)
+        }
+        if (swiped) {
+            lastTriggerAt = now
+            swipes++
+            synchronized(track) { track.clear() }
+            AutoScrollService.instance?.get()?.externalSwipe()
+        }
+        setState(STATE_HAND)
+    }
+
+    private fun computeVelocity(points: ArrayDeque<TrackPoint>): Float {
+        val first = points.peekFirst() ?: return 0f
+        val last = points.peekLast() ?: return 0f
+        val dur = (last.at - first.at) / 1000f
+        if (dur <= 0f) return 0f
+        return (last.y - first.y) / dur
+    }
+
+    private fun checkSwipe(points: ArrayDeque<TrackPoint>): Boolean {
+        if (points.size < 4) return false
+        val first = points.peekFirst()
+        val last = points.peekLast()
+        val dur = last.at - first.at
+        if (dur < 120L || dur > SWIPE_WINDOW_MS) return false
+        val dy = last.y - first.y
+        val minDp = prefs.handSensitivity.coerceIn(10, 30) / 100f
+        if (-dy < minDp) return false
+
+        var downMoves = 0
+        var prev = points.peekFirst()
+        val iterator = points.iterator()
+        iterator.next()
+        while (iterator.hasNext()) {
+            val cur = iterator.next()
+            if (cur.y > prev.y + 0.005f) downMoves++
+            prev = cur
+        }
+        return downMoves <= (points.size - 1) / 3
     }
 
     override fun onCreate() {
@@ -126,7 +226,7 @@ class BlinkScrollService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            Prefs(this).blinkEnabled = false
+            Prefs(this).handEnabled = false
             stopSelf()
             return START_NOT_STICKY
         }
@@ -135,7 +235,7 @@ class BlinkScrollService : Service() {
         if (!isRunning) resetStats()
         isRunning = true
         setState(if (hasCamera()) STATE_WAITING else STATE_NO_PERM)
-        if (detector == null) detector = createDetector()
+        if (landmarker == null) landmarker = createLandmarker()
 
         main.removeCallbacks(loop)
         main.post(loop)
@@ -172,8 +272,12 @@ class BlinkScrollService : Service() {
     override fun onDestroy() {
         main.removeCallbacks(loop)
         stopCamera()
-        detector?.close()
-        detector = null
+        try {
+            landmarker?.close()
+        } catch (_: Exception) {
+        }
+        landmarker = null
+        synchronized(track) { track.clear() }
         isRunning = false
         state = STATE_OFF
         super.onDestroy()
@@ -182,18 +286,25 @@ class BlinkScrollService : Service() {
     private fun hasCamera(): Boolean =
         checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
-    private fun createDetector(): FaceDetector? = try {
-        FaceDetection.getClient(
-            FaceDetectorOptions.Builder()
-                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
-                .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE)
-                .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-                .setMinFaceSize(0.15f)
+    private fun createLandmarker(): HandLandmarker? = try {
+        HandLandmarker.createFromOptions(
+            this,
+            HandLandmarker.HandLandmarkerOptions.builder()
+                .setBaseOptions(
+                    BaseOptions.builder()
+                        .setModelAssetPath(MODEL_PATH)
+                        .build()
+                )
+                .setRunningMode(RunningMode.VIDEO)
+                .setNumHands(1)
+                .setMinHandDetectionConfidence(0.5f)
+                .setMinHandPresenceConfidence(0.5f)
+                .setMinTrackingConfidence(0.5f)
                 .build()
         )
     } catch (error: Exception) {
-        Log.w(TAG, "detector tidak tersedia", error)
+        Log.w(TAG, "detektor tangan tidak tersedia", error)
+        lastError = error.message ?: error.javaClass.simpleName
         null
     }
 
@@ -204,9 +315,9 @@ class BlinkScrollService : Service() {
             return
         }
         if (SystemClock.elapsedRealtime() < nextOpenAt) return
-        if (detector == null) {
-            detector = createDetector()
-            if (detector == null) {
+        if (landmarker == null) {
+            landmarker = createLandmarker()
+            if (landmarker == null) {
                 nextOpenAt = SystemClock.elapsedRealtime() + RETRY_MS
                 setState(STATE_ERROR)
                 return
@@ -214,6 +325,7 @@ class BlinkScrollService : Service() {
         }
 
         val cameraId = frontCameraId() ?: run {
+            lastError = "Kamera depan tidak ditemukan"
             setState(STATE_ERROR)
             return
         }
@@ -236,8 +348,9 @@ class BlinkScrollService : Service() {
             processing = false
             lastFrameAt = 0L
             lastError = null
-            leftOpen = -1f
-            rightOpen = -1f
+            palmY = -1f
+            palmVel = 0f
+            handVisible = false
 
             val texture = SurfaceTexture(0)
             texture.setDefaultBufferSize(size.width, size.height)
@@ -284,10 +397,10 @@ class BlinkScrollService : Service() {
         camera = null
         cameraOpen = false
         processing = false
-        eyesClosedAt = 0L
-        firstBlinkAt = 0L
-        leftOpen = -1f
-        rightOpen = -1f
+        palmY = -1f
+        palmVel = 0f
+        handVisible = false
+        synchronized(track) { track.clear() }
         try {
             cam.setPreviewCallbackWithBuffer(null)
         } catch (_: Exception) {
@@ -305,72 +418,6 @@ class BlinkScrollService : Service() {
         } catch (_: Exception) {
         }
         surface = null
-    }
-
-    private fun onFaces(faces: List<Face>) {
-        processing = false
-        framesAnalyzed++
-        frameFailures = 0
-        lastError = null
-        if (!isRunning || camera == null) return
-
-        val face = faces
-            .filter { it.leftEyeOpenProbability != null || it.rightEyeOpenProbability != null }
-            .maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
-        if (face == null) {
-            leftOpen = -1f
-            rightOpen = -1f
-            eyesClosedAt = 0L
-            clearBlinkHint()
-            setState(STATE_ACTIVE)
-            return
-        }
-
-        val left = face.leftEyeOpenProbability
-        val right = face.rightEyeOpenProbability
-        leftOpen = left ?: -1f
-        rightOpen = right ?: -1f
-        faceHits++
-        setState(STATE_FACE)
-        val open = listOfNotNull(left, right).average().toFloat()
-        val now = SystemClock.elapsedRealtime()
-
-        if (firstBlinkAt != 0L && now - firstBlinkAt > DOUBLE_WINDOW_MS) clearBlinkHint()
-
-        if (open < EYES_CLOSED) {
-            if (eyesClosedAt == 0L) eyesClosedAt = now
-            return
-        }
-        if (open < EYES_OPEN) return
-
-        val closedAt = eyesClosedAt
-        eyesClosedAt = 0L
-        if (closedAt == 0L) return
-        if (now - closedAt !in BLINK_MIN_MS..BLINK_MAX_MS) return
-        blinksDetected++
-        registerBlink(now)
-    }
-
-    private fun clearBlinkHint() {
-        if (firstBlinkAt == 0L) return
-        firstBlinkAt = 0L
-        if (isRunning) updateNotification()
-    }
-
-    private fun registerBlink(now: Long) {
-        if (now - lastTriggerAt < TRIGGER_COOLDOWN_MS) return
-
-        if (firstBlinkAt == 0L || now - firstBlinkAt > DOUBLE_WINDOW_MS) {
-            firstBlinkAt = now
-            if (isRunning) updateNotification()
-            return
-        }
-        if (now - firstBlinkAt < DOUBLE_MIN_GAP_MS) return
-
-        firstBlinkAt = 0L
-        lastTriggerAt = now
-        triggers++
-        AutoScrollService.instance?.get()?.externalSwipe()
     }
 
     private fun frontCameraId(): Int? {
@@ -418,7 +465,7 @@ class BlinkScrollService : Service() {
         if (nm.getNotificationChannel(CHANNEL_ID) == null) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                getString(R.string.notif_blink_channel),
+                getString(R.string.notif_hand_channel),
                 NotificationManager.IMPORTANCE_LOW
             )
             channel.setShowBadge(false)
@@ -444,13 +491,13 @@ class BlinkScrollService : Service() {
         val stop = PendingIntent.getService(
             this,
             41,
-            Intent(this, BlinkScrollService::class.java).setAction(ACTION_STOP),
+            Intent(this, HandScrollService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_eye)
-            .setContentTitle(getString(R.string.notif_blink_title))
+            .setContentTitle(getString(R.string.notif_hand_title))
             .setContentText(getString(statusTextRes()))
             .setContentIntent(open)
             .setOnlyAlertOnce(true)
@@ -458,7 +505,7 @@ class BlinkScrollService : Service() {
             .addAction(
                 Notification.Action.Builder(
                     null,
-                    getString(R.string.action_stop_blink),
+                    getString(R.string.action_stop_hand),
                     stop
                 ).build()
             )
@@ -466,41 +513,35 @@ class BlinkScrollService : Service() {
     }
 
     private fun statusTextRes(): Int = when (state) {
-        STATE_ACTIVE -> R.string.blink_status_active
-        STATE_FACE -> if (firstBlinkAt != 0L) {
-            R.string.blink_status_one_blink
-        } else {
-            R.string.blink_status_face
-        }
-        STATE_ERROR -> R.string.blink_status_error
-        STATE_NO_PERM -> R.string.blink_status_no_perm
-        else -> R.string.blink_status_waiting
+        STATE_ACTIVE -> R.string.hand_status_active
+        STATE_HAND -> R.string.hand_status_hand
+        STATE_ERROR -> R.string.hand_status_error
+        STATE_NO_PERM -> R.string.hand_status_no_perm
+        else -> R.string.hand_status_waiting
     }
 
     companion object {
-        private const val TAG = "AutoScrollBlink"
-        private const val CHANNEL_ID = "autoscroll.blink"
+        private const val TAG = "AutoScrollHand"
+        private const val CHANNEL_ID = "autoscroll.hand"
         private const val NOTIFY_ID = 1002
-        private const val ACTION_STOP = "id.iqbal.tiktokauto.action.STOP_BLINK"
+        private const val ACTION_STOP = "id.iqbal.tiktokauto.action.STOP_HAND"
+        private const val MODEL_PATH = "hand_landmarker.task"
 
         private const val LOOP_MS = 1200L
         private const val RETRY_MS = 8000L
+        private const val FRAME_MIN_MS = 33L
         private const val FAILURES_BEFORE_ERROR = 25
+        private const val JPEG_QUALITY = 85
         private const val TARGET_W = 640
         private const val TARGET_H = 480
 
-        private const val EYES_CLOSED = 0.45f
-        private const val EYES_OPEN = 0.55f
-        private const val BLINK_MIN_MS = 40L
-        private const val BLINK_MAX_MS = 1200L
-        private const val DOUBLE_WINDOW_MS = 3000L
-        private const val DOUBLE_MIN_GAP_MS = 120L
-        private const val TRIGGER_COOLDOWN_MS = 2000L
+        private const val SWIPE_WINDOW_MS = 600L
+        private const val TRIGGER_COOLDOWN_MS = 1500L
 
         const val STATE_OFF = 0
         const val STATE_WAITING = 1
         const val STATE_ACTIVE = 2
-        const val STATE_FACE = 3
+        const val STATE_HAND = 3
         const val STATE_ERROR = 4
         const val STATE_NO_PERM = 5
 
@@ -528,23 +569,23 @@ class BlinkScrollService : Service() {
             private set
 
         @Volatile
-        var faceHits = 0L
+        var handVisible = false
             private set
 
         @Volatile
-        var blinksDetected = 0
+        var handFrames = 0L
             private set
 
         @Volatile
-        var triggers = 0
+        var swipes = 0
             private set
 
         @Volatile
-        var leftOpen = -1f
+        var palmY = -1f
             private set
 
         @Volatile
-        var rightOpen = -1f
+        var palmVel = 0f
             private set
 
         @Volatile
@@ -558,11 +599,11 @@ class BlinkScrollService : Service() {
         private fun resetStats() {
             framesReceived = 0L
             framesAnalyzed = 0L
-            faceHits = 0L
-            blinksDetected = 0
-            triggers = 0
-            leftOpen = -1f
-            rightOpen = -1f
+            handFrames = 0L
+            swipes = 0
+            palmY = -1f
+            palmVel = 0f
+            handVisible = false
             lastError = null
             previewLabel = "-"
         }

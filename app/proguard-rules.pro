@@ -1,3 +1,3 @@
 -keep class id.iqbal.tiktokauto.AutoScrollService { *; }
 -keep class id.iqbal.tiktokauto.MainActivity { *; }
--keep class id.iqbal.tiktokauto.BlinkScrollService { *; }
+-keep class id.iqbal.tiktokauto.HandScrollService { *; }

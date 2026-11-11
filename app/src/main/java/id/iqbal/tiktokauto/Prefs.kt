@@ -63,9 +63,13 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_AUTO_FALLBACK, true)
         set(value) = sp.edit().putBoolean(KEY_AUTO_FALLBACK, value).apply()
 
-    var blinkEnabled: Boolean
-        get() = sp.getBoolean(KEY_BLINK, false)
-        set(value) = sp.edit().putBoolean(KEY_BLINK, value).apply()
+    var handEnabled: Boolean
+        get() = sp.getBoolean(KEY_HAND, false)
+        set(value) = sp.edit().putBoolean(KEY_HAND, value).apply()
+
+    var handSensitivity: Int
+        get() = sp.getInt(KEY_HAND_SENS, 18)
+        set(value) = sp.edit().putInt(KEY_HAND_SENS, value).apply()
 
     var uiOpen: Boolean
         get() = sp.getBoolean(KEY_UI_OPEN, true)
@@ -139,7 +143,8 @@ class Prefs(context: Context) {
         private const val KEY_VIBRATE = "vibrate"
         private const val KEY_SKIP_ADS = "skip_ads"
         private const val KEY_AUTO_FALLBACK = "auto_fallback"
-        private const val KEY_BLINK = "blink_enabled"
+        private const val KEY_HAND = "hand_enabled"
+        private const val KEY_HAND_SENS = "hand_sensitivity"
         private const val KEY_UI_OPEN = "ui_open"
         private const val KEY_BUBBLE_X = "bubble_x"
         private const val KEY_BUBBLE_Y = "bubble_y"

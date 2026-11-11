@@ -377,7 +377,7 @@ class AutoScrollService : AccessibilityService() {
 
     private fun doSwipe(
         force: Boolean = false,
-        viaBlink: Boolean = false,
+        viaHand: Boolean = false,
         viaAd: Boolean = false
     ) {
         if (!::prefs.isInitialized) return
@@ -403,14 +403,14 @@ class AutoScrollService : AccessibilityService() {
         gestureBusy = true
         lastSwipeAt = SystemClock.elapsedRealtime()
         resetScanState()
-        if (viaBlink) flashChip(getString(R.string.swipe_source_blink), "#4ADE80")
+        if (viaHand) flashChip(getString(R.string.swipe_source_hand), "#4ADE80")
         if (viaAd) flashChip(getString(R.string.swipe_source_ad), "#FBBF24")
 
         val launched = dispatchGesture(gesture, object : GestureResultCallback() {
             override fun onCompleted(gestureDescription: GestureDescription?) {
                 gestureBusy = false
                 prefs.addScroll()
-                feedback(viaBlink)
+                feedback(viaHand)
             }
 
             override fun onCancelled(gestureDescription: GestureDescription?) {
@@ -441,7 +441,7 @@ class AutoScrollService : AccessibilityService() {
 
     fun externalSwipe() {
         if (!::prefs.isInitialized) return
-        main.post { doSwipe(force = true, viaBlink = true) }
+        main.post { doSwipe(force = true, viaHand = true) }
     }
 
     fun onUiOpened() {
@@ -477,10 +477,10 @@ class AutoScrollService : AccessibilityService() {
         if (::prefs.isInitialized) syncBubble()
     }
 
-    private fun feedback(viaBlink: Boolean) {
+    private fun feedback(viaHand: Boolean) {
         if (prefs.vibrate) {
             val vibrator = getSystemService(Vibrator::class.java)
-            if (viaBlink) {
+            if (viaHand) {
                 vibrator?.vibrate(
                     VibrationEffect.createWaveform(longArrayOf(0L, 30L, 60L, 30L), -1)
                 )
