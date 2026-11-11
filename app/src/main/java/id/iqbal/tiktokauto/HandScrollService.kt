@@ -71,7 +71,8 @@ class HandScrollService : Service() {
         override fun run() {
             val power = getSystemService(POWER_SERVICE) as PowerManager
             val tiktok = AutoScrollService.instance?.get()?.isTikTokForeground() == true
-            if (power.isInteractive && (tiktok || testMode)) {
+            val allowed = if (prefs.onlyTikTok) tiktok else true
+            if (power.isInteractive && (allowed || testMode)) {
                 openCamera()
                 if (camera != null && lastFrameAt == 0L &&
                     SystemClock.elapsedRealtime() - cameraOpenedAt > 3500L
@@ -162,8 +163,9 @@ class HandScrollService : Service() {
             palmY = -1f
             palmVel = 0f
             synchronized(track) {
+                // Bersihkan track hanya jika sudah lama tidak ada tangan (> 400ms)
                 val oldest = track.peekFirst()
-                if (oldest == null || SystemClock.elapsedRealtime() - oldest.at > 600L) track.clear()
+                if (oldest != null && SystemClock.elapsedRealtime() - oldest.at > 400L) track.clear()
             }
             setState(STATE_ACTIVE)
             return
@@ -171,17 +173,18 @@ class HandScrollService : Service() {
 
         handVisible = true
         handFrames++
+        // Rata-rata Y dari: pergelangan (0), pangkal jari 2,3,4,5 (5,9,13,17)
         val y = (hand[0].y() + hand[5].y() + hand[9].y() + hand[13].y() + hand[17].y()) / 5f
         val now = SystemClock.elapsedRealtime()
         palmY = y
 
         val swiped = synchronized(track) {
-            if (track.isEmpty() || now - track.peekLast().at > 400L) track.clear()
+            if (track.isNotEmpty() && now - track.peekLast().at > 300L) track.clear()
             track.addLast(TrackPoint(now, y))
             while (track.isNotEmpty() && now - track.peekFirst().at > SWIPE_WINDOW_MS) {
                 track.pollFirst()
             }
-            palmVel = -computeVelocity(track)
+            palmVel = computeVelocity(track)
             if (now - lastTriggerAt < TRIGGER_COOLDOWN_MS) false else checkSwipe(track)
         }
         if (swiped) {
@@ -194,33 +197,50 @@ class HandScrollService : Service() {
     }
 
     private fun computeVelocity(points: ArrayDeque<TrackPoint>): Float {
-        val first = points.peekFirst() ?: return 0f
-        val last = points.peekLast() ?: return 0f
-        val dur = (last.at - first.at) / 1000f
-        if (dur <= 0f) return 0f
-        return (last.y - first.y) / dur
+        if (points.size < 2) return 0f
+        val current = points.peekLast() ?: return 0f
+        var prev: TrackPoint? = null
+        for (pt in points) {
+            if (current.at - pt.at in 50L..250L) {
+                prev = pt
+                break
+            }
+        }
+        val p = prev ?: points.peekFirst() ?: return 0f
+        val dur = (current.at - p.at) / 1000f
+        if (dur <= 0.01f) return 0f
+        return (p.y - current.y) / dur // Positif jika bergerak ke atas
     }
 
     private fun checkSwipe(points: ArrayDeque<TrackPoint>): Boolean {
-        if (points.size < 4) return false
-        val first = points.peekFirst()
-        val last = points.peekLast()
-        val dur = last.at - first.at
-        if (dur < 120L || dur > SWIPE_WINDOW_MS) return false
-        val dy = last.y - first.y
-        val minDp = prefs.handSensitivity.coerceIn(10, 30) / 100f
-        if (-dy < minDp) return false
+        if (points.size < 3) return false
+        val current = points.peekLast() ?: return false
+        val minDy = prefs.handSensitivity.coerceIn(10, 30) / 160f
 
-        var downMoves = 0
-        var prev = points.peekFirst()
-        val iterator = points.iterator()
-        iterator.next()
-        while (iterator.hasNext()) {
-            val cur = iterator.next()
-            if (cur.y > prev.y + 0.005f) downMoves++
-            prev = cur
+        // Cari titik terendah (Y terbesar) dalam rentang 60ms..500ms terakhir
+        var lowestY = current.y
+        var lowestAt = current.at
+
+        for (pt in points) {
+            val age = current.at - pt.at
+            if (age in 60L..500L) {
+                if (pt.y > lowestY) {
+                    lowestY = pt.y
+                    lowestAt = pt.at
+                }
+            }
         }
-        return downMoves <= (points.size - 1) / 3
+
+        val dy = lowestY - current.y
+        val dur = current.at - lowestAt
+        if (dur < 60L || dur > 500L) return false
+        if (dy < minDy) return false
+
+        // Kecepatan ke atas minimal 0.30 tinggi frame / detik
+        val speed = dy / (dur / 1000f)
+        if (speed < 0.30f) return false
+
+        return true
     }
 
     override fun onCreate() {
@@ -452,8 +472,9 @@ class HandScrollService : Service() {
         } catch (_: Exception) {
             0
         }
+        // Kamera depan: harus dikurangi (mirror), bukan ditambah
         return if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-            (info.orientation + degrees) % 360
+            (info.orientation - degrees + 360) % 360
         } else {
             (info.orientation - degrees + 360) % 360
         }
@@ -540,8 +561,8 @@ class HandScrollService : Service() {
         private const val TARGET_W = 640
         private const val TARGET_H = 480
 
-        private const val SWIPE_WINDOW_MS = 600L
-        private const val TRIGGER_COOLDOWN_MS = 1500L
+        private const val SWIPE_WINDOW_MS = 800L
+        private const val TRIGGER_COOLDOWN_MS = 1200L
 
         const val STATE_OFF = 0
         const val STATE_WAITING = 1

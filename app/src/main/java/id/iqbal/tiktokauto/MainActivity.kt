@@ -118,10 +118,6 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
-        if (isFinishing) {
-            AutoScrollService.instance?.get()?.onUiClosed()
-            stopService(Intent(this, HandScrollService::class.java))
-        }
         io.shutdownNow()
         super.onDestroy()
     }

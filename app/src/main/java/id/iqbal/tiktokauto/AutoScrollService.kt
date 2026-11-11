@@ -158,11 +158,6 @@ class AutoScrollService : AccessibilityService() {
     private fun tick() {
         if (!::prefs.isInitialized) return
         if (uiClosed) return
-        if (!prefs.enabled) {
-            setBubble(BubbleView.STATE_OFF, -1f)
-            maybeNotify()
-            return
-        }
 
         val power = getSystemService(POWER_SERVICE) as PowerManager
         if (!power.isInteractive) {
@@ -170,8 +165,6 @@ class AutoScrollService : AccessibilityService() {
             resetScanState()
             return
         }
-
-        if (prefs.bubble) maybeAddBubble()
 
         val root = rootInActiveWindow
         if (root != null) {
@@ -187,6 +180,14 @@ class AutoScrollService : AccessibilityService() {
             if (now - lastSwipeAt > 10_000L) lastSwipeAt = now
         }
         wasTikTok = foregroundTikTok
+
+        if (!prefs.enabled) {
+            setBubble(BubbleView.STATE_OFF, -1f)
+            maybeNotify()
+            return
+        }
+
+        if (prefs.bubble) maybeAddBubble()
 
         if (prefs.onlyTikTok && !foregroundTikTok) {
             setBubble(BubbleView.STATE_IDLE, -1f)

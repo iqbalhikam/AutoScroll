@@ -11,8 +11,8 @@ android {
         applicationId = "id.iqbal.tiktokauto"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.6.3"
+        versionCode = 13
+        versionName = "1.6.4"
 
         ndk {
             abiFilters.add("arm64-v8a")
